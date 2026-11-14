@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Audio and generated artifacts (keep the repo small; see samples/README.md)
+samples/**/*.wav
+samples/**/*.mp3
+samples/**/*.flac
+samples/**/*.ogg
+samples/**/*.m4a
+samples/**/*.aiff
+samples/**/*.aif
+*.mid
+*.midi
+outputs/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
