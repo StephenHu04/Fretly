@@ -369,14 +369,16 @@ The schedule is an estimate. Correctness and working milestones take priority ov
 
 Tasks:
 
-- [ ] Create the Git repository.
-- [ ] Add this specification to the repository root.
-- [ ] Create a Python virtual environment.
-- [ ] Set up dependency management.
-- [ ] Install and verify FFmpeg.
+- [x] Create the Git repository.
+- [x] Add this specification to the repository root.
+- [x] Create a Python virtual environment.
+- [x] Set up dependency management.
+- [x] Install and verify FFmpeg.
 - [ ] Create a small clean guitar test recording.
-- [ ] Add a minimal README and `.gitignore`.
-- [ ] Record setup instructions.
+- [x] Add a minimal README and `.gitignore`.
+- [x] Record setup instructions.
+- [x] Add CI (GitHub Actions) running the fast test suite on every push.
+- [x] Start a decision log (`docs/decisions.md`).
 
 Acceptance criteria:
 
@@ -391,13 +393,16 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Validate file type, duration, size, and audio readability.
-- [ ] Preprocess audio.
-- [ ] Run Basic Pitch.
-- [ ] Save a MIDI artifact.
-- [ ] Parse the MIDI into note events.
-- [ ] Inspect detected pitches and timing against the recording.
-- [ ] Document known transcription limitations.
+- [x] Validate file type, duration, size, and audio readability.
+- [x] Preprocess audio.
+- [x] Run Basic Pitch.
+- [x] Save a MIDI artifact.
+- [x] Parse the MIDI into note events.
+- [ ] Inspect detected pitches and timing against the recording. (Done on synthetic audio; real recording pending.)
+- [x] Document known transcription limitations.
+- [ ] Benchmark the pipeline: cold start vs warm inference, real-time factor
+      (processing time ÷ audio duration), and peak memory per worker. These
+      numbers drive the Phase 4 worker design and capacity estimates.
 
 Acceptance criteria:
 
@@ -421,6 +426,12 @@ Tasks:
 - [ ] Generate plain-text tablature.
 - [ ] Add unit tests for edge cases.
 - [ ] Add simple chord support if the monophonic version is stable.
+- [ ] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch
+      emits second-harmonic notes at about half velocity; observed in Phase 2).
+- [ ] Define playability metrics explicitly: position shifts per minute,
+      maximum stretch, string changes.
+- [ ] Implement a naive baseline (e.g. lowest fret per note) behind the same
+      interface as the optimizer, and report both on the same metrics.
 
 Acceptance criteria:
 
@@ -429,6 +440,7 @@ Acceptance criteria:
 - The optimizer selects a valid candidate when one exists.
 - Impossible notes are reported rather than silently misrepresented.
 - Tests cover multiple possible positions and transitions.
+- The optimizer is measurably better than the baseline on the defined metrics.
 
 ## Phase 4 — Backend and background jobs (Weeks 3–4)
 
@@ -445,6 +457,11 @@ Tasks:
 - [ ] Add PostgreSQL persistence when job metadata needs to survive restarts.
 - [ ] Add local object storage or a clear storage abstraction.
 - [ ] Add progress delivery through SSE, WebSockets, or polling.
+- [ ] Load the model once per worker process, not once per job (if the
+      Phase 2 benchmark shows cold start dominates).
+- [ ] Cache results by content hash (SHA-256 of audio + settings) so
+      identical uploads skip inference.
+- [ ] Load test (e.g. Locust): throughput and queue latency vs concurrency.
 
 Acceptance criteria:
 
@@ -492,8 +509,16 @@ Tasks:
 - [ ] Improve logging and observability.
 - [ ] Document architecture and tradeoffs.
 - [ ] Deploy the frontend and backend.
-- [ ] Record a short demonstration.
+- [ ] Record a short demonstration and add a GIF to the top of the README.
 - [ ] Document limitations honestly.
+- [ ] Evaluate on GuitarSet (real guitar audio with string/fret annotations;
+      confirm license and access before use).
+- [ ] Error attribution: run the optimizer on ground-truth notes as well as
+      model output, to separate transcription errors from fret-assignment errors.
+- [ ] Track which corrections users make most often (from saved Phase 5
+      edits) to find systematic weaknesses.
+- [ ] Stretch: learn optimizer cost weights from GuitarSet's human fingerings
+      instead of hand-tuning them.
 
 Acceptance criteria:
 
