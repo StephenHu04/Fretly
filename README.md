@@ -1,7 +1,11 @@
 # Fretly
+
+[![tests](https://github.com/StephenHu04/Fretly/actions/workflows/tests.yml/badge.svg)](https://github.com/StephenHu04/Fretly/actions/workflows/tests.yml)
+
 An end-to-end audio-to-tablature transcription engine combining polyphonic pitch detection, and dynamic programming fretboard pathfinding.
 
-See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the full specification and roadmap.
+- [PROJECT_SPEC.md](PROJECT_SPEC.md): full specification and roadmap
+- [docs/decisions.md](docs/decisions.md): technical decisions and their trade-offs
 
 ## Status
 
