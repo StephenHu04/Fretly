@@ -1,0 +1,12 @@
+# Exact versions verified on Python 3.12.5 / Windows, 2026-11-13.
+# Install with: pip install -r requirements.lock && pip install -e . --no-deps
+cffi==2.1.1
+colorama==0.4.6
+iniconfig==2.3.1
+numpy==2.5.4
+packaging==26.3
+pluggy==1.7.0
+pycparser==3.12
+Pygments==2.21.0
+pytest==9.2.0
+soundfile==0.13.1
