@@ -6,13 +6,20 @@ build-backend = "setuptools.build_meta"
 name = "fretly-backend"
 version = "0.1.0"
 description = "Fretly audio pipeline and tablature engine"
-requires-python = ">=3.11,<3.13"
+# basic-pitch 0.4.0 needs tensorflow<2.15.1, which has no Python 3.12 build.
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "numpy>=1.26,<3",
+    "pretty-midi>=0.2.10,<0.3",
     "soundfile>=0.12,<0.14",
 ]
 
 [project.optional-dependencies]
+# Kept optional so the fast test suite (which mocks the model) installs
+# without TensorFlow.
+transcription = [
+    "basic-pitch==0.4.0",
+]
 dev = [
     "pytest>=8,<10",
 ]
@@ -23,6 +30,8 @@ include = ["pipeline*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-m 'not model'"
 markers = [
     "ffmpeg: requires ffmpeg/ffprobe on PATH (skipped automatically when missing)",
+    "model: runs real model inference; opt in with `pytest -m model`",
 ]
