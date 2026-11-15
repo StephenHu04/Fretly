@@ -132,3 +132,41 @@ concrete need appears (e.g. jobs must survive restarts → PostgreSQL).
 **Consequences.** Faster iteration on the hard parts (transcription quality, the
 optimizer). The pipeline stages already read and write files, so moving them
 into queue workers later should be mostly a wiring change.
+
+---
+
+## 008 — Keep the model loaded in each worker process
+
+**Date:** 2026-11-14 · **Status:** Accepted (implemented in Phase 4)
+
+**Context.** `basic_pitch.inference.predict()` builds a new `Model` on every
+call unless it's passed one that's already loaded, and `transcribe()` currently
+relies on that default. `scripts/benchmark_pipeline.py` measured on a 16-thread
+Windows laptop, CPU only (full numbers in the README):
+
+- cold start in a fresh process: 11.4 s (7.9 s importing TensorFlow, 1.1 s
+  loading the model, 2.4 s for the first inference);
+- per job with the model kept loaded: 0.18 s for 15 s of audio, 0.73 s for 60 s
+  (RTF ≈ 0.012, linear in length);
+- per job with the model reloaded: a further ~1.3 s fixed cost, so 1.42 s for
+  15 s of audio (~8× slower);
+- memory: ~0.4 GB after loading, ~0.7 GB peak per process.
+
+**Options.**
+1. Start a process per job: pays the 11 s cold start every time.
+2. Long-lived workers that reload the model per job: simple, but most of the
+   time for a typical clip goes to reloading the model.
+3. Long-lived workers that load the model once and pass it to `predict()`.
+
+**Decision.** Option 3. In Phase 4, workers load the model at start-up and
+`transcribe()` accepts the loaded model, through the existing `predict_fn`
+injection point or an explicit argument. No change now: the CLI runs one job
+per process, where the difference doesn't apply.
+
+**Consequences.** Inference stops being the bottleneck for 15–60 s clips, so
+queueing and I/O will dominate job latency. Worker count per machine is bounded
+by memory (~0.7 GB each) rather than CPU time, and workers need a warm-up
+period before they report ready. If memory becomes the limit, the ONNX model
+(decision 001) is the next thing to measure. These numbers come from synthetic
+audio on one machine, so they should be rerun on real recordings and on the
+deployment hardware.

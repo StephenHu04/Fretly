@@ -400,7 +400,7 @@ Tasks:
 - [x] Parse the MIDI into note events.
 - [ ] Inspect detected pitches and timing against the recording. (Done on synthetic audio; real recording pending.)
 - [x] Document known transcription limitations.
-- [ ] Benchmark the pipeline: cold start vs warm inference, real-time factor
+- [x] Benchmark the pipeline: cold start vs warm inference, real-time factor
       (processing time ÷ audio duration), and peak memory per worker. These
       numbers drive the Phase 4 worker design and capacity estimates.
 
