@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -86,10 +86,11 @@ def test_inference_failure_is_wrapped(write_tone: WriteTone, tmp_path: Path) -> 
     assert "internal" not in exc.value.message
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("basic_pitch") is not None, reason="basic-pitch is installed"
-)
-def test_missing_model_reports_clearly(write_tone: WriteTone, tmp_path: Path) -> None:
+def test_missing_model_reports_clearly(
+    write_tone: WriteTone, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A None entry in sys.modules makes the import fail even when installed.
+    monkeypatch.setitem(sys.modules, "basic_pitch.inference", None)
     with pytest.raises(TranscriptionError) as exc:
         transcribe(write_tone(), tmp_path / "x.mid")
     assert exc.value.code == "model_unavailable"
