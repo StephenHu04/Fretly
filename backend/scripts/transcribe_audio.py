@@ -14,13 +14,10 @@ import sys
 import time
 from pathlib import Path
 
-from pipeline.audio_validation import AudioValidationError, validate_audio
-from pipeline.preprocess import PreprocessError, preprocess_audio
-from pipeline.transcribe import (
-    TranscriptionError,
-    TranscriptionSettings,
-    transcribe,
-)
+from pipeline.audio_validation import validate_audio
+from pipeline.errors import PipelineError
+from pipeline.preprocess import preprocess_audio
+from pipeline.transcribe import TranscriptionSettings, transcribe
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         t0 = time.perf_counter()
         result = transcribe(model_input, out_dir / f"{src.stem}.mid", settings)
         timings["transcribe_s"] = time.perf_counter() - t0
-    except (AudioValidationError, PreprocessError, TranscriptionError) as exc:
+    except PipelineError as exc:
         print(f"error [{exc.code}]: {exc.message}", file=sys.stderr)
         return 1
 
@@ -77,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Input: {info.duration_s:.2f} s, {info.sample_rate} Hz, {info.channels} ch ({info.format})")
     print(f"MIDI:  {result.midi_path}")
-    print(f"Time:  " + ", ".join(f"{k}={v:.2f}" for k, v in timings.items()))
+    print("Time:  " + ", ".join(f"{k}={v:.2f}" for k, v in timings.items()))
     print(f"Notes: {len(result.notes)}\n")
     print(f"{'#':>4}  {'start':>7}  {'end':>7}  {'dur':>6}  {'note':<4} {'midi':>4}  {'vel':>3}")
     for i, n in enumerate(result.notes, 1):

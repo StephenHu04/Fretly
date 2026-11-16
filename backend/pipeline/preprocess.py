@@ -13,18 +13,15 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from pipeline.errors import PipelineError
+
 TARGET_SAMPLE_RATE = 22050
 TARGET_CHANNELS = 1
 FFMPEG_ENV_VAR = "FRETLY_FFMPEG"
 
 
-class PreprocessError(Exception):
-    """FFmpeg is missing or failed. ``message`` is user-safe."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+class PreprocessError(PipelineError):
+    """FFmpeg is missing or failed."""
 
 
 def find_ffmpeg() -> str | None:

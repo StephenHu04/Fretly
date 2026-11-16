@@ -6,22 +6,19 @@ library's types, so the optimizer stays independent of how notes were produced.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import pretty_midi
+
+from pipeline.errors import PipelineError
 
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 
 
-class MidiParseError(Exception):
-    """The MIDI file is missing or cannot be read. ``message`` is user-safe."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+class MidiParseError(PipelineError):
+    """The MIDI file is missing or cannot be read."""
 
 
 @dataclass(frozen=True, order=True)
@@ -89,7 +86,7 @@ def notes_from_basic_pitch(
     """
     notes: list[NoteEvent] = []
     for event in events:
-        start, end, pitch, amplitude = (event[0], event[1], event[2], event[3])
+        start, end, pitch, amplitude = event[:4]
         velocity = max(1, min(127, round(127 * float(amplitude))))  # type: ignore[arg-type]
         start_f, end_f, pitch_i = float(start), float(end), int(pitch)  # type: ignore[arg-type]
         if _is_valid(start_f, end_f, pitch_i, velocity):

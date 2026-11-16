@@ -215,6 +215,7 @@ The FFmpeg tests are skipped automatically when FFmpeg isn't installed.
 
 ```text
 backend/
+  pipeline/errors.py             PipelineError base (stable code + user-safe message)
   pipeline/audio_validation.py   audio inspection and validation
   pipeline/preprocess.py         FFmpeg conversion to mono 22.05 kHz WAV
   pipeline/transcribe.py         Basic Pitch wrapper (audio -> MIDI)

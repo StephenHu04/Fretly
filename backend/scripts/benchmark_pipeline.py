@@ -32,16 +32,18 @@ import platform
 import statistics
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import soundfile as sf
 
-from pipeline.audio_validation import AudioValidationError, validate_audio
-from pipeline.preprocess import TARGET_SAMPLE_RATE, PreprocessError, preprocess_audio
+from pipeline.audio_validation import validate_audio
+from pipeline.errors import PipelineError
+from pipeline.preprocess import TARGET_SAMPLE_RATE, preprocess_audio
 from pipeline.transcribe import PredictFn, TranscriptionError, transcribe
 
 DEFAULT_DURATIONS_S = (15.0, 30.0, 60.0)
@@ -367,7 +369,7 @@ def main(argv: list[str] | None = None, backend_loader: Callable[[], Backend] = 
             clips, args.repeats, args.out_dir,
             include_reload=not args.no_reload, backend_loader=backend_loader,
         )
-    except (AudioValidationError, PreprocessError, TranscriptionError) as exc:
+    except PipelineError as exc:
         print(f"error [{exc.code}]: {exc.message}", file=sys.stderr)
         return 1
 

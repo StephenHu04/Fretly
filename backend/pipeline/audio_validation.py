@@ -15,6 +15,8 @@ from pathlib import Path
 
 import soundfile as sf
 
+from pipeline.errors import PipelineError
+
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
     {".wav", ".flac", ".ogg", ".mp3", ".aiff", ".aif"}
 )
@@ -25,17 +27,8 @@ DEFAULT_MIN_DURATION_S = 0.5
 DEFAULT_MAX_DURATION_S = 120.0
 
 
-class AudioValidationError(Exception):
-    """An expected, user-facing validation failure.
-
-    ``code`` is stable for programmatic handling; ``message`` is safe to show
-    to a user and never includes internal paths or stack traces.
-    """
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+class AudioValidationError(PipelineError):
+    """The file is missing, unreadable or outside the configured limits."""
 
 
 @dataclass(frozen=True)

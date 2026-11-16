@@ -69,7 +69,7 @@ def test_synth_phrase_is_deterministic_and_bounded() -> None:
 
 def test_synthetic_clips_have_requested_durations(tmp_path: Path) -> None:
     clips = make_synthetic_clips([1.0, 2.5], tmp_path)
-    for clip, expected in zip(clips, [1.0, 2.5]):
+    for clip, expected in zip(clips, [1.0, 2.5], strict=True):
         info = sf.info(str(clip.path))
         assert info.samplerate == 22050 and info.channels == 1
         assert info.duration == pytest.approx(expected, abs=1e-3)

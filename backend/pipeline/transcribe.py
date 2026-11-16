@@ -12,10 +12,12 @@ The call matches ``basic_pitch.inference.predict`` in basic-pitch 0.4.0:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+from pipeline.errors import PipelineError
 from pipeline.midi_parser import NoteEvent, notes_from_basic_pitch
 
 PredictFn = Callable[..., tuple[Any, Any, list[Any]]]
@@ -27,13 +29,8 @@ GUITAR_MIN_HZ = 75.0
 GUITAR_MAX_HZ = 1400.0
 
 
-class TranscriptionError(Exception):
-    """The model is unavailable or inference failed. ``message`` is user-safe."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+class TranscriptionError(PipelineError):
+    """The model is unavailable or inference failed."""
 
 
 @dataclass(frozen=True)
