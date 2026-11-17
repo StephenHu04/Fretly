@@ -52,6 +52,7 @@ pytest==9.2.0
 requests==2.34.2
 requests-oauthlib==2.0.0
 resampy==0.4.2
+ruff==0.17.5
 scikit-learn==1.9.1
 scipy==1.17.1
 six==1.17.0

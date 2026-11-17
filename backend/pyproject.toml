@@ -22,10 +22,19 @@ transcription = [
 ]
 dev = [
     "pytest>=8,<10",
+    "ruff>=0.17,<0.18",
 ]
 
 [tool.setuptools.packages.find]
 include = ["pipeline*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# Pyflakes (unused code), import order, pyupgrade, bugbear.
+select = ["F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
