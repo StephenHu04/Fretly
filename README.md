@@ -211,6 +211,12 @@ pytest -m model     # real Basic Pitch inference (requires basic-pitch installed
 
 The FFmpeg tests are skipped automatically when FFmpeg isn't installed.
 
+Lint with [ruff](https://docs.astral.sh/ruff/) (configured in `pyproject.toml`; CI runs it on every push):
+
+```bash
+ruff check .        # add --fix to apply safe fixes
+```
+
 ## Repository layout
 
 ```text
