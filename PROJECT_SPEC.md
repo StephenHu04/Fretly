@@ -417,6 +417,8 @@ Do not start the full frontend before this milestone works.
 
 **Goal:** Convert MIDI pitches into playable string/fret positions.
 
+Detailed plan and order of work: [docs/phase-3-plan.md](docs/phase-3-plan.md).
+
 Tasks:
 
 - [ ] Implement the standard-tuning fretboard model.

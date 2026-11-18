@@ -6,6 +6,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 
 - [PROJECT_SPEC.md](PROJECT_SPEC.md): full specification and roadmap
 - [docs/decisions.md](docs/decisions.md): technical decisions and their trade-offs
+- [docs/phase-3-plan.md](docs/phase-3-plan.md): plan for the tablature optimizer
 
 ## Status
 
@@ -13,7 +14,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 2 (audio → MIDI): pipeline works end to end with the real model on
   synthetic audio and is [benchmarked](#benchmarking); still to do is checking
   it on real guitar recordings.
-- No tab generation yet.
+- Phase 3 (tablature optimizer): [planned](docs/phase-3-plan.md), not started.
 
 ## Setup
 
