@@ -6,8 +6,8 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** planned, not started. Each milestone below is roughly one commit,
-and each leaves the test suite green.
+**Status:** 3.1 and 3.2 done (2026-11-18); 3.3 next. Each milestone below is
+roughly one commit, and each leaves the test suite green.
 
 ## Scope
 
@@ -51,15 +51,15 @@ def assign(notes: list[NoteEvent], fretboard: Fretboard) -> Assignment: ...
 
 ## Milestones
 
-### 3.1 Fretboard model and candidates
+### 3.1 Fretboard model and candidates ✅
 - `Tuning` (open-string MIDI pitches; standard = 64, 59, 55, 50, 45, 40) and
   `Fretboard(tuning, max_fret=24)`.
 - `candidates(pitch)` returns every `Position` with `0 <= pitch - open <= max_fret`,
   ordered by fret.
 - Tests: open strings, a pitch with exactly one position (E2, F2), a pitch with
-  five positions (E4), below range (< 40), above range (> 88), custom `max_fret`.
+  six positions (E4), below range (< 40), above range (> 88), custom `max_fret`.
 
-### 3.2 Octave-ghost filter
+### 3.2 Octave-ghost filter ✅
 Basic Pitch emitted second-harmonic notes in Phase 2: an octave above a real
 note, same onset, about half the velocity.
 - Rule: drop note B when there's a note A with `B.pitch == A.pitch + 12`,
@@ -70,7 +70,7 @@ note, same onset, about half the velocity.
 - Tests: ghost removed, a loud real octave kept, octave with different onset
   kept, the Phase 2 synthetic phrase loses exactly its ghosts.
 - Known risk: deliberate quiet octaves get removed. Acceptable for monophonic
-  MVP clips; recorded in the decision log.
+  MVP clips; recorded in decision 009.
 
 ### 3.3 Baseline assigner
 - "Lowest fret wins" for each note independently (ties go to the higher string).

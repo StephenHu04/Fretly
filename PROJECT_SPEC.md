@@ -421,14 +421,14 @@ Detailed plan and order of work: [docs/phase-3-plan.md](docs/phase-3-plan.md).
 
 Tasks:
 
-- [ ] Implement the standard-tuning fretboard model.
-- [ ] Generate valid candidates for each pitch.
+- [x] Implement the standard-tuning fretboard model.
+- [x] Generate valid candidates for each pitch.
 - [ ] Implement a baseline dynamic programming optimizer for monophonic notes.
 - [ ] Add a basic playability cost function.
 - [ ] Generate plain-text tablature.
 - [ ] Add unit tests for edge cases.
 - [ ] Add simple chord support if the monophonic version is stable.
-- [ ] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch
+- [x] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch
       emits second-harmonic notes at about half velocity; observed in Phase 2).
 - [ ] Define playability metrics explicitly: position shifts per minute,
       maximum stretch, string changes.

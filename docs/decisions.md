@@ -170,3 +170,24 @@ period before they report ready. If memory becomes the limit, the ONNX model
 (decision 001) is the next thing to measure. These numbers come from synthetic
 audio on one machine, so they should be rerun on real recordings and on the
 deployment hardware.
+
+---
+
+## 009 — Filter octave ghosts by pitch, onset and velocity
+
+**Date:** 2026-11-18 · **Status:** Accepted
+
+**Context.** On the Phase 2 synthetic phrase, Basic Pitch added 7 notes exactly
+one octave above real notes, at the same onset and about half the velocity
+(second harmonics). In tab these would become notes nobody played.
+
+**Decision.** `tab.cleanup.remove_octave_ghosts` drops a note when another note
+sits exactly 12 semitones below it, starts within 50 ms, and is at least
+1/0.6 times as loud. Every note is checked against the original input, and
+removed notes are returned so the CLI can show them.
+
+**Consequences.** Deliberately quiet octaves (e.g. an octave played softly over
+a bass note) are removed too. That's acceptable for the monophonic MVP. Both
+thresholds are in `GhostFilterSettings` and were set from synthetic audio, so
+they need retuning on real recordings. Other harmonics (the fifth above the
+octave) aren't handled yet.
