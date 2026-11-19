@@ -26,7 +26,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["pipeline*"]
+include = ["pipeline*", "tab*"]
 
 [tool.ruff]
 target-version = "py311"
