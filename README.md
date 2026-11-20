@@ -14,8 +14,9 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 2 (audio → MIDI): pipeline works end to end with the real model on
   synthetic audio and is [benchmarked](#benchmarking); still to do is checking
   it on real guitar recordings.
-- Phase 3 (tablature optimizer): in progress. The fretboard model and octave-ghost
-  filter are done; see the [plan](docs/phase-3-plan.md) for what's next.
+- Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
+  filter, lowest-fret baseline and playability metrics are done; the optimizer
+  is next (see the [plan](docs/phase-3-plan.md)).
 
 ## Setup
 
@@ -230,6 +231,8 @@ backend/
   pipeline/midi_parser.py        MIDI / model output -> NoteEvent
   tab/fretboard.py               tuning, positions, candidate string/fret positions
   tab/cleanup.py                 octave-ghost filter for model output
+  tab/assign.py                  assignment types and the lowest-fret baseline
+  tab/metrics.py                 playability metrics (shifts, stretch, travel)
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark

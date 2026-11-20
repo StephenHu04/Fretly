@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1 and 3.2 done (2026-11-18); 3.3 next. Each milestone below is
+**Status:** 3.1–3.4 done (2026-11-19); 3.5 next. Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -38,8 +38,8 @@ Core types:
 
 ```python
 Position(string: int, fret: int)            # string 1 = high E ... 6 = low E
-TabNote(note: NoteEvent, position: Position | None)   # None = unplayable
-Assignment(notes: list[TabNote], unplayable: list[NoteEvent])
+TabNote(note: NoteEvent, position: Position)
+Assignment(notes: list[TabNote], unplayable: list[NoteEvent])   # unplayable kept separately
 ```
 
 Both assigners have the same signature, so the metrics and renderer don't care
@@ -72,7 +72,7 @@ note, same onset, about half the velocity.
 - Known risk: deliberate quiet octaves get removed. Acceptable for monophonic
   MVP clips; recorded in decision 009.
 
-### 3.3 Baseline assigner
+### 3.3 Baseline assigner ✅
 - "Lowest fret wins" for each note independently (ties go to the higher string).
   This is what a naive tool would do and is the yardstick for the optimizer.
 - Notes with no candidates go to `unplayable`, never silently dropped or
@@ -80,12 +80,12 @@ note, same onset, about half the velocity.
 - Tests: every assigned position reproduces the note's pitch, unplayable
   notes are reported, empty input gives an empty assignment.
 
-### 3.4 Playability metrics
+### 3.4 Playability metrics ✅
 Defined before the optimizer so it's judged on numbers fixed in advance:
 
 | Metric | Definition |
 |---|---|
-| Position shifts / min | the hand sits on a 4-fret window; a fretted note outside it moves the window and counts as a shift |
+| Position shifts / min | a shift happens when a fretted note can't fit in one 4-fret window with every fretted note played since the last shift |
 | Max stretch | largest fret distance between consecutive fretted notes less than 250 ms apart |
 | Fret travel | total absolute fret change between consecutive fretted notes |
 | String changes | consecutive notes on different strings |

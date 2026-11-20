@@ -430,7 +430,7 @@ Tasks:
 - [ ] Add simple chord support if the monophonic version is stable.
 - [x] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch
       emits second-harmonic notes at about half velocity; observed in Phase 2).
-- [ ] Define playability metrics explicitly: position shifts per minute,
+- [x] Define playability metrics explicitly: position shifts per minute,
       maximum stretch, string changes.
 - [ ] Implement a naive baseline (e.g. lowest fret per note) behind the same
       interface as the optimizer, and report both on the same metrics.
