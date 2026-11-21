@@ -22,9 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import contextlib
 import ctypes
-import io
 import json
 import math
 import os
@@ -222,11 +220,9 @@ def import_backend() -> Backend:
 # --- Benchmark --------------------------------------------------------------
 
 def _time_transcribe(clip: Clip, predict_fn: PredictFn, out_dir: Path) -> float:
-    # Basic Pitch prints "Predicting MIDI for ..." on every call.
-    with contextlib.redirect_stdout(io.StringIO()):
-        t0 = time.perf_counter()
-        transcribe(clip.path, out_dir / f"{clip.name}.mid", predict_fn=predict_fn)
-        return time.perf_counter() - t0
+    t0 = time.perf_counter()
+    transcribe(clip.path, out_dir / f"{clip.name}.mid", predict_fn=predict_fn)
+    return time.perf_counter() - t0
 
 
 def run_benchmark(

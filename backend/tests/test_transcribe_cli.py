@@ -34,6 +34,15 @@ def test_cli_json_end_to_end_with_fake_model(
     assert "transcribe_s" in report["timings"]
 
 
+def test_json_output_stays_valid_when_the_model_prints(
+    write_tone: WriteTone, tmp_path: Path, fake_model: FakePredict, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The real Basic Pitch prints "Predicting MIDI for ..." on every call.
+    fake_model.message = "Predicting MIDI for clip.wav..."
+    assert main([str(write_tone()), "--out-dir", str(tmp_path), "--skip-preprocess", "--json"]) == 0
+    json.loads(capsys.readouterr().out)
+
+
 def test_cli_table_output(
     write_tone: WriteTone, tmp_path: Path, fake_model: FakePredict, capsys: pytest.CaptureFixture[str]
 ) -> None:

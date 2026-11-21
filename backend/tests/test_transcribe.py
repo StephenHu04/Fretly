@@ -25,10 +25,13 @@ class FakePredict:
     def __init__(self, events: list[Any] = FAKE_EVENTS, error: Exception | None = None) -> None:
         self.events = events
         self.error = error
+        self.message: str | None = None  # printed to stdout, like Basic Pitch
         self.kwargs: dict[str, Any] = {}
 
     def __call__(self, audio_path: Path, **kwargs: Any) -> tuple[Any, pretty_midi.PrettyMIDI, list[Any]]:
         self.kwargs = kwargs
+        if self.message:
+            print(self.message)
         if self.error:
             raise self.error
         pm = pretty_midi.PrettyMIDI()
