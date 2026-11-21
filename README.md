@@ -11,9 +11,9 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 ## Status
 
 - Phase 1 (environment, audio inspection): done.
-- Phase 2 (audio → MIDI): pipeline works end to end with the real model on
-  synthetic audio and is [benchmarked](#benchmarking); still to do is checking
-  it on real guitar recordings.
+- Phase 2 (audio → MIDI): pipeline works end to end, is
+  [benchmarked](#benchmarking), and has been checked against
+  [a first real recording](#observed-on-a-real-recording) (11 of 12 notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics and dynamic programming
   optimizer are done; plain-text tab output is next (see the
@@ -136,12 +136,43 @@ On an 11-note E minor pentatonic run (E2 to E4, synthesised with harmonics,
 - Transcription took ~16 s, almost all of it one-off TensorFlow start-up and
   model loading (see [Benchmarking](#benchmarking)).
 
-This is a smoke test, not an accuracy measurement. Real guitar recordings come next.
+This is a smoke test, not an accuracy measurement.
+
+### Observed on a real recording
+
+`samples/audio_clips/no_chord1.m4a`: a 5.6 s single-note phrase recorded on a
+phone (M4A, 48 kHz), checked against the tab of what was actually played
+(`no_chord1.tab.txt`, 12 notes). Measured 2026-11-20 at default settings:
+
+| | Notes |
+|---|---|
+| Played | 12 |
+| Detected with the correct pitch | 11 |
+| Missed | 1 (a quiet F#4) |
+| Extra | 2 (B3) |
+
+- The first 9 notes (E4, D#4, B3, three times) were all correct.
+- **The extra B3s are the open B string ringing.** E4 was played on the B
+  string at fret 5; when that finger lifted to move to the high E string, the B
+  string rang open. The model heard a note that really sounded, but not one
+  that was meant. Both extras appear exactly as the finger leaves the B string.
+- **The missed F#4 was played softly.** Lowering the thresholds
+  (`--onset-threshold 0.35 --frame-threshold 0.2`) finds it at about half the
+  velocity of its neighbours, but also splits G#4 in two and adds a long B3.
+- No octave ghosts appeared, so the ghost filter correctly removed nothing.
+- Given the 12 correct notes, the optimizer chose the same string/fret as the
+  reference for 11. The exception is E4: open high E instead of fret 5 on the B
+  string. Both are valid. The reference choice sets up the move to frets 2 and 4,
+  which the cost function doesn't model.
+
+One short clip isn't an accuracy measurement either, but it's the first check
+against real playing. More clips with reference tabs are being added.
 
 ### Known limitations
 
-Apart from the octave ghosts above, these come from Basic Pitch's documented
-behaviour and haven't been measured on real guitar yet. Phase 6 adds measurements.
+Apart from the octave ghosts and the ringing open string above, these come
+from Basic Pitch's documented behaviour and haven't been measured on real
+guitar yet. Phase 6 adds measurements.
 
 - Basic Pitch is a general instrument model, not guitar-specific. It reports
   pitches and timing, not string/fret positions (that's the Phase 3 optimizer).

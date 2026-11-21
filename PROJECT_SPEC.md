@@ -374,7 +374,7 @@ Tasks:
 - [x] Create a Python virtual environment.
 - [x] Set up dependency management.
 - [x] Install and verify FFmpeg.
-- [ ] Create a small clean guitar test recording.
+- [x] Create a small clean guitar test recording.
 - [x] Add a minimal README and `.gitignore`.
 - [x] Record setup instructions.
 - [x] Add CI (GitHub Actions) running the fast test suite on every push.
@@ -398,7 +398,7 @@ Tasks:
 - [x] Run Basic Pitch.
 - [x] Save a MIDI artifact.
 - [x] Parse the MIDI into note events.
-- [ ] Inspect detected pitches and timing against the recording. (Done on synthetic audio; real recording pending.)
+- [x] Inspect detected pitches and timing against the recording. (Synthetic audio, then `no_chord1`: 11 of 12 notes correct.)
 - [x] Document known transcription limitations.
 - [x] Benchmark the pipeline: cold start vs warm inference, real-time factor
       (processing time ÷ audio duration), and peak memory per worker. These

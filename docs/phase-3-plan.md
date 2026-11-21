@@ -149,5 +149,11 @@ option runs the Phase 2 pipeline first.
   (decision 010).
 - **Weights:** hand-tuned in 3.5 and checked in 3.8. Learning them from
   GuitarSet fingerings is a Phase 6 stretch goal.
-- **Ghost thresholds:** set from synthetic audio. Retune them once real
-  recordings are in `samples/`.
+- **Ghost thresholds:** set from synthetic audio. The first real recording
+  (`no_chord1`) had no octave ghosts at all; retune once more clips are in.
+- **Ringing open strings:** in `no_chord1`, lifting a finger off a fretted note
+  let the open string ring, and the model reported it as a note (B3 twice). A
+  second cleanup filter could drop a short, quiet note at an open-string pitch
+  that starts as a fretted note on that string ends. It needs string positions,
+  so it would run after assignment rather than before it. Candidate for after
+  3.8, tested against `no_chord1` and its reference tab.

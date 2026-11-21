@@ -1,0 +1,24 @@
+# Reference tab for no_chord1.m4a (what was actually played)
+# Recorded on a phone (iPhone, M4A/AAC, 48 kHz mono), 5.6 s, standard tuning.
+# Single notes only, no chords.
+
+e|-0-------0-------0---------2-4-|
+B|---4-0-----4-0-----4-0--5------|
+G|-------------------------------|
+D|-------------------------------|
+A|-------------------------------|
+E|-------------------------------|
+
+# The same 12 notes in order: string, fret, pitch (MIDI)
+# 1  e 0  E4  64
+# 2  B 4  D#4 63
+# 3  B 0  B3  59
+# 4  e 0  E4  64
+# 5  B 4  D#4 63
+# 6  B 0  B3  59
+# 7  e 0  E4  64
+# 8  B 4  D#4 63
+# 9  B 0  B3  59
+# 10 B 5  E4  64
+# 11 e 2  F#4 66
+# 12 e 4  G#4 68
