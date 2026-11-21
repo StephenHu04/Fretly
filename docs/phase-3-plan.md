@@ -117,9 +117,68 @@ state(b)           = w_height * fret_b                      (mild preference for
   several, ties resolve deterministically, it never picks an invalid candidate.
 
 ### 3.6 Plain-text tab
-- Six lines (high E at the top), one column per distinct onset, fret numbers
-  padded to equal width. Rhythm isn't shown yet.
-- Golden-file tests for a short riff, two-digit frets and an empty input.
+`tab/render.py`: `render_tab(assignment, fretboard, width=80) -> str`. It takes
+an `Assignment` from either assigner and returns plain text in the usual
+guitar-tab layout, the same style as the reference tabs in `samples/`.
+
+**What `no_chord1` will look like** (optimizer output from the model's notes):
+
+```text
+e|-0-----0-----0-----0---4-|
+B|---4-0---4-0---4-0---0-0-|
+G|-------------------------|
+D|-------------------------|
+A|-------------------------|
+E|-------------------------|
+```
+
+and, for comparison, the reference tab in the same layout:
+
+```text
+e|-0-----0-----0-------2-4-|
+B|---4-0---4-0---4-0-5-----|
+G|-------------------------|
+D|-------------------------|
+A|-------------------------|
+E|-------------------------|
+```
+
+The differences are the ones found in the real-recording check: the extra
+open-B notes and the missed F#4, and E4 placed on the open e string rather
+than fret 5 on B.
+
+Layout rules:
+
+| Rule | Detail |
+|---|---|
+| Lines | One per string, high e at the top. Each starts with its label and `\|` and ends with `-\|` |
+| Labels | Note name of each open string, from the tuning (`e B G D A E`; drop D gives `e B G D A D`). The highest string is lower-case when its letter repeats another string's |
+| Columns | One per onset. Notes starting within 30 ms of each other share a column (double stops now, chords in 3.9) |
+| Same-string clash | If two notes in one column land on the same string (possible before 3.9), the later one moves to the next column, so nothing is overwritten |
+| Spacing | Each column is `-` plus the fret number, padded with `-` to the widest number in that column, so two-digit frets stay aligned (example below) |
+| Rhythm | Not shown: columns are evenly spaced. Rhythm needs tempo and quantization, which are out of scope for Phase 3 |
+| Wrapping | Lines longer than `width` (default 80) wrap into blocks separated by a blank line; each block repeats the labels. Columns are never split |
+| Unplayable notes | Listed under the tab as `# unplayable: C2 at 1.23 s`, so nothing disappears silently |
+| Empty input | Six lines like `e\|-\|`, with no columns |
+
+Two-digit frets and a double stop:
+
+```text
+e|-12-10----8--|
+B|-------13-10-|
+G|-------------|
+D|-------------|
+A|-------------|
+E|-------------|
+```
+
+Tests compare the output with exact expected strings ("golden" tests):
+the `no_chord1` example above, two-digit alignment, a double stop in one
+column, a same-string clash, wrapping at a small width, unplayable notes,
+drop-D labels and empty input.
+
+Later, not in 3.6: spacing proportional to time between notes, bar lines once
+tempo is known, and technique marks (`h`, `p`, `/`).
 
 ### 3.7 Command-line tool
 `python scripts/tab_from_midi.py clip.mid [--method baseline|optimized] [--json]`
