@@ -11,7 +11,8 @@ For the MVP, a good sample is:
 - Standard tuning (E A D G B E).
 - 15–60 seconds long.
 - A simple single-note melody first; a few simple chords later.
-- WAV or FLAC (lossless) at 44.1 or 48 kHz.
+- WAV or FLAC (lossless) at 44.1 or 48 kHz is best. Phone recordings in M4A
+  (e.g. iPhone Voice Memos; set Audio Quality to Lossless) work too.
 
 Suggested name: `clean_melody_01.wav`. When a recording has a known reference
 (a MIDI file or a tab you played from), keep it next to the audio with the same

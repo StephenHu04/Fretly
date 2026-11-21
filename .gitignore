@@ -23,6 +23,7 @@ samples/**/*.mp3
 samples/**/*.flac
 samples/**/*.ogg
 samples/**/*.m4a
+samples/**/*.aac
 samples/**/*.aiff
 samples/**/*.aif
 *.mid

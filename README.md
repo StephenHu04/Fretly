@@ -79,12 +79,15 @@ format, and exits with code 1 if the file fails validation.
 
 Current validation rules (see `backend/pipeline/audio_validation.py`):
 
-- Extensions: `.wav .flac .ogg .mp3 .aiff .aif`
+- Extensions: `.wav .flac .ogg .mp3 .aiff .aif .m4a .aac`
 - Max file size: 50 MB
 - Duration: 0.5–120 s
 - The audio data must actually decode, not just the header.
 
-M4A/AAC isn't accepted yet. It needs FFmpeg conversion, which arrives in Phase 2.
+`.m4a` and `.aac`, the formats most phone recorders (including iPhone Voice
+Memos) use, can't be read by libsndfile. They're inspected with ffprobe instead,
+so they need FFmpeg installed. ffprobe reads only the header, so a file that's
+corrupt further in is caught when FFmpeg converts it (`ffmpeg_failed`).
 
 ## Transcribing audio to MIDI
 
