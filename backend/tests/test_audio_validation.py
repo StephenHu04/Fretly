@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from pipeline import audio_validation
 from pipeline.audio_validation import (
     AudioValidationError,
     ValidationLimits,
@@ -128,3 +129,45 @@ def test_ffprobe_agrees_with_soundfile(write_tone: WriteTone) -> None:
     assert probe["sample_rate"] == 48000
     assert probe["channels"] == 2
     assert probe["duration_s"] == pytest.approx(2.0, abs=0.01)
+
+
+# --- M4A/AAC (phone recordings), inspected with ffprobe -----------------------
+
+
+@pytest.mark.ffmpeg
+@pytest.mark.skipif(not ffprobe_available(), reason="ffprobe not on PATH")
+def test_m4a_is_validated(write_m4a: WriteTone) -> None:
+    info = validate_audio(write_m4a(duration_s=2.0, sample_rate=44100, channels=2))
+    assert info.readable
+    assert info.duration_s == pytest.approx(2.0, abs=0.05)  # AAC adds a little padding
+    assert (info.sample_rate, info.channels) == (44100, 2)
+    assert (info.format, info.subtype) == ("M4A", "AAC")
+
+
+@pytest.mark.ffmpeg
+@pytest.mark.skipif(not ffprobe_available(), reason="ffprobe not on PATH")
+def test_m4a_duration_limits_apply(write_m4a: WriteTone) -> None:
+    with pytest.raises(AudioValidationError) as exc:
+        validate_audio(write_m4a(duration_s=2.0), ValidationLimits(max_duration_s=1.0))
+    assert exc.value.code == "too_long"
+
+
+@pytest.mark.ffmpeg
+@pytest.mark.skipif(not ffprobe_available(), reason="ffprobe not on PATH")
+def test_corrupt_m4a_is_unreadable(tmp_path: Path) -> None:
+    path = tmp_path / "broken.m4a"
+    path.write_bytes(b"not really audio" * 100)
+    with pytest.raises(AudioValidationError) as exc:
+        validate_audio(path)
+    assert exc.value.code == "unreadable_audio"
+    assert str(tmp_path) not in exc.value.message
+
+
+def test_m4a_without_ffprobe_says_ffmpeg_is_needed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "phone.m4a"
+    path.write_bytes(b"\x00" * 100)
+    monkeypatch.setattr(audio_validation.shutil, "which", lambda _: None)
+    with pytest.raises(AudioValidationError) as exc:
+        validate_audio(path)
+    assert exc.value.code == "ffprobe_missing"
+    assert "M4A" in exc.value.message

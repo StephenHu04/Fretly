@@ -1,8 +1,9 @@
 """Inspect and validate local audio files before they enter the pipeline.
 
 Decoding uses libsndfile (via the ``soundfile`` package), which handles WAV,
-FLAC, OGG/Vorbis, AIFF and, with libsndfile >= 1.1, MP3. Containers such as
-M4A/AAC need FFmpeg and are handled by the ffprobe helpers instead.
+FLAC, OGG/Vorbis, AIFF and, with libsndfile >= 1.1, MP3. M4A/AAC (what most
+phone recorders produce) can't be read by libsndfile, so those files are
+inspected with ffprobe instead and converted by FFmpeg during preprocessing.
 """
 
 from __future__ import annotations
@@ -18,8 +19,10 @@ import soundfile as sf
 from pipeline.errors import PipelineError
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
-    {".wav", ".flac", ".ogg", ".mp3", ".aiff", ".aif"}
+    {".wav", ".flac", ".ogg", ".mp3", ".aiff", ".aif", ".m4a", ".aac"}
 )
+# Inspected with ffprobe because libsndfile can't decode them.
+FFPROBE_EXTENSIONS: frozenset[str] = frozenset({".m4a", ".aac"})
 
 # Limits sized for the MVP's short (~15-60 s) clips, with headroom.
 DEFAULT_MAX_FILE_BYTES = 50 * 1024 * 1024
@@ -68,6 +71,9 @@ def inspect_audio(path: str | Path) -> AudioInfo:
     if size == 0:
         raise AudioValidationError("empty_file", "Audio file is empty.")
 
+    if p.suffix.lower() in FFPROBE_EXTENSIONS:
+        return _inspect_with_ffprobe(p, size)
+
     try:
         meta = sf.info(str(p))
         # Header parsing alone can succeed on truncated files, so decode a
@@ -93,6 +99,45 @@ def inspect_audio(path: str | Path) -> AudioInfo:
         format=meta.format,
         subtype=meta.subtype,
         format_description=meta.format_info,
+        file_size_bytes=size,
+    )
+
+
+def _inspect_with_ffprobe(path: Path, size: int) -> AudioInfo:
+    """Inspect a container libsndfile can't open (M4A/AAC).
+
+    ffprobe reads the stream metadata but doesn't decode every frame, so a
+    corrupt file whose header is intact is caught later by FFmpeg
+    preprocessing (``ffmpeg_failed``) rather than here.
+    """
+    try:
+        probe = probe_with_ffprobe(path)
+    except AudioValidationError as exc:
+        if exc.code == "ffprobe_missing":
+            raise AudioValidationError(
+                "ffprobe_missing", "FFmpeg is required to read M4A/AAC files."
+            ) from exc
+        if exc.code == "ffprobe_timeout":
+            raise
+        raise AudioValidationError(
+            "unreadable_audio", "Audio file could not be decoded."
+        ) from exc
+
+    sample_rate, channels = int(probe["sample_rate"]), int(probe["channels"])  # type: ignore[call-overload]
+    duration_s = float(probe["duration_s"])  # type: ignore[arg-type]
+    if sample_rate <= 0 or channels <= 0:
+        raise AudioValidationError(
+            "invalid_audio", "Audio file has an invalid sample rate or channel count."
+        )
+    return AudioInfo(
+        readable=True,
+        duration_s=duration_s,
+        sample_rate=sample_rate,
+        channels=channels,
+        frames=round(duration_s * sample_rate),
+        format=path.suffix[1:].upper(),
+        subtype=str(probe["codec"] or "").upper(),
+        format_description=str(probe["format_description"] or ""),
         file_size_bytes=size,
     )
 
@@ -168,6 +213,7 @@ def probe_with_ffprobe(path: str | Path, timeout_s: float = 30.0) -> dict[str, o
     fmt = data.get("format", {})
     return {
         "format": fmt.get("format_name"),
+        "format_description": fmt.get("format_long_name"),
         "codec": stream.get("codec_name"),
         "sample_rate": int(stream.get("sample_rate", 0)),
         "channels": int(stream.get("channels", 0)),

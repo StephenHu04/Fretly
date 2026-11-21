@@ -57,6 +57,18 @@ def test_cli_validation_error_exit_code(
     assert "file_not_found" in capsys.readouterr().err
 
 
+@pytest.mark.ffmpeg
+def test_cli_converts_m4a_before_transcribing(
+    write_m4a: WriteTone, tmp_path: Path, fake_model: FakePredict, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "out"
+    assert main([str(write_m4a(name="phone.m4a", duration_s=2.0)), "--out-dir", str(out_dir), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["input"]["format"] == "M4A"
+    converted = sf.info(str(out_dir / "phone.22k.wav"))
+    assert (converted.samplerate, converted.channels) == (22050, 1)
+
+
 # --- Real-model test: opt-in with `pytest -m model` ---------------------------
 
 
