@@ -15,8 +15,9 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
   synthetic audio and is [benchmarked](#benchmarking); still to do is checking
   it on real guitar recordings.
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
-  filter, lowest-fret baseline and playability metrics are done; the optimizer
-  is next (see the [plan](docs/phase-3-plan.md)).
+  filter, lowest-fret baseline, playability metrics and dynamic programming
+  optimizer are done; plain-text tab output is next (see the
+  [plan](docs/phase-3-plan.md)).
 
 ## Setup
 
@@ -233,6 +234,7 @@ backend/
   tab/cleanup.py                 octave-ghost filter for model output
   tab/assign.py                  assignment types and the lowest-fret baseline
   tab/metrics.py                 playability metrics (shifts, stretch, travel)
+  tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark

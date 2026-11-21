@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.4 done (2026-11-19); 3.5 next. Each milestone below is
+**Status:** 3.1–3.5 done (2026-11-20); 3.6 next. Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -94,9 +94,10 @@ Defined before the optimizer so it's judged on numbers fixed in advance:
 Open strings don't move the hand, so they're skipped when measuring shifts,
 stretch and travel.
 
-### 3.5 Dynamic programming optimizer
+### 3.5 Dynamic programming optimizer ✅
 Viterbi over the candidate lattice: one column per note, one state per
-candidate position (at most six), so it runs in O(notes × 6²).
+(candidate position, hand) pair. There are at most six positions per note and a
+handful of hand windows each, so it stays linear in the number of notes.
 
 Starting cost function, with hand-picked weights in a settings dataclass:
 
@@ -107,7 +108,9 @@ transition(a -> b) = w_move   * |fret_b - fret_a|          (fretted -> fretted)
 state(b)           = w_height * fret_b                      (mild preference for low positions)
 ```
 
-- Open strings cost nothing to reach or leave (the hand stays put).
+- Open strings don't move the hand. The state is (position, hand), where the
+  hand remembers its fret window and last fretted note, so an open string
+  can't hide a jump (decision 010).
 - Unplayable notes are taken out of the chain; their neighbours connect directly.
 - Tests: a scale run stays in one position instead of sliding along one string,
   a repeated note keeps its position, a large jump takes one shift instead of
@@ -142,9 +145,8 @@ option runs the Phase 2 pipeline first.
   followed by a single note.
 
 ## Open questions
-- **Hand position as state:** moving across open strings loses track of where
-  the hand is. If tests show this causes bad choices, extend the state to
-  (position, hand window) at a cost of more states per note.
+- ~~**Hand position as state.**~~ Resolved in 3.5: the state includes the hand
+  (decision 010).
 - **Weights:** hand-tuned in 3.5 and checked in 3.8. Learning them from
   GuitarSet fingerings is a Phase 6 stretch goal.
 - **Ghost thresholds:** set from synthetic audio. Retune them once real

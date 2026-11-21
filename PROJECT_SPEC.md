@@ -423,8 +423,8 @@ Tasks:
 
 - [x] Implement the standard-tuning fretboard model.
 - [x] Generate valid candidates for each pitch.
-- [ ] Implement a baseline dynamic programming optimizer for monophonic notes.
-- [ ] Add a basic playability cost function.
+- [x] Implement a baseline dynamic programming optimizer for monophonic notes.
+- [x] Add a basic playability cost function.
 - [ ] Generate plain-text tablature.
 - [ ] Add unit tests for edge cases.
 - [ ] Add simple chord support if the monophonic version is stable.

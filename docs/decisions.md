@@ -191,3 +191,33 @@ a bass note) are removed too. That's acceptable for the monophonic MVP. Both
 thresholds are in `GhostFilterSettings` and were set from synthetic audio, so
 they need retuning on real recordings. Other harmonics (the fifth above the
 octave) aren't handled yet.
+
+---
+
+## 010 — The optimizer's state includes the hand, not just the position
+
+**Date:** 2026-11-20 · **Status:** Accepted
+
+**Context.** A Viterbi search whose state is only the current string/fret
+position can't tell where the fretting hand is after an open string. The plan
+said open strings would cost nothing to reach or leave, but then fret 2 → open
+→ fret 12 would look free, which is wrong.
+
+**Options.**
+1. Position-only state, open strings free: smallest search, but it misjudges
+   any phrase with open strings in it.
+2. Position-only state, measuring moves from the previous note even when it's
+   open: also simple, but it charges hand moves that never happen.
+3. State = (position, hand), where the hand is the fret window used since the
+   last shift plus the last fretted fret.
+
+**Decision.** Option 3. The window uses the same 4-fret rule as
+`tab.metrics`, so the optimizer minimises what is measured. The search stays
+exact: tests check it against brute force over every combination on random
+phrases.
+
+**Consequences.** More states per note: up to about 10 hand windows per
+fretted candidate instead of 1, plus the hands carried across open strings.
+That's still tiny for 15–60 s clips. The starting weights (move 1.0, shift 5.0,
+string 0.5, low-fret preference 0.1) are hand-picked and get checked against the
+baseline in milestone 3.8.
