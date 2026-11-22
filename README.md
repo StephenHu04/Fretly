@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [a first real recording](#observed-on-a-real-recording) (11 of 12 notes correct).
+  [four real recordings](#observed-on-real-recordings) (59 of 61 played notes found).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
   optimizer, plain-text tab output and an [audio-to-tab command](#making-tabs)
@@ -139,39 +139,57 @@ On an 11-note E minor pentatonic run (E2 to E4, synthesised with harmonics,
 
 This is a smoke test, not an accuracy measurement.
 
-### Observed on a real recording
+### Observed on real recordings
 
-`samples/audio_clips/no_chord1.m4a`: a 5.6 s single-note phrase recorded on a
-phone (M4A, 48 kHz), checked against the tab of what was actually played
-(`no_chord1.tab.txt`, 12 notes). Measured 2026-11-20 at default settings:
+Four single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
+`samples/audio_clips/`, each checked against a tab of what was actually played
+(`no_chord*.tab.txt`). Measured 2026-11-21 with `make_tab.py` at default
+settings (octave-ghost filter on). Detected notes were matched to played notes
+in order (longest common subsequence of pitches).
 
-| | Notes |
-|---|---|
-| Played | 12 |
-| Detected with the correct pitch | 11 |
-| Missed | 1 (a quiet F#4) |
-| Extra | 2 (B3) |
+| Clip | Played | Correct | Missed | Extra |
+|---|---|---|---|---|
+| no_chord1 | 12 | 11 | 1 | 2 |
+| no_chord2 | 12 | 12 | 0 | 5 |
+| no_chord3 | 12 | 11 | 1 | 4 |
+| no_chord4 | 25 | 25 | 0 | 8 |
+| **Total** | **61** | **59 (97%)** | **2** | **19** |
 
-- The first 9 notes (E4, D#4, B3, three times) were all correct.
-- **The extra B3s are the open B string ringing.** E4 was played on the B
-  string at fret 5; when that finger lifted to move to the high E string, the B
-  string rang open. The model heard a note that really sounded, but not one
-  that was meant. Both extras appear exactly as the finger leaves the B string.
-- **The missed F#4 was played softly.** Lowering the thresholds
-  (`--onset-threshold 0.35 --frame-threshold 0.2`) finds it at about half the
-  velocity of its neighbours, but also splits G#4 in two and adds a long B3.
-- No octave ghosts appeared, so the ghost filter correctly removed nothing.
-- Given the 12 correct notes, the optimizer chose the same string/fret as the
-  reference for 11. The exception is E4: open high E instead of fret 5 on the B
-  string. Both are valid. The reference choice sets up the move to frets 2 and 4,
-  which the cost function doesn't model.
+**Nearly every played note is found, but about one detected note in four is
+extra** (precision 59/78 = 76%). The extras fall into clear groups:
 
-One short clip isn't an accuracy measurement either, but it's the first check
-against real playing. More clips with reference tabs are being added.
+| Cause | Extras | Example |
+|---|---|---|
+| Open string ringing when a finger lifts off it | 12 | B3 after B fret 5 → e fret 2; G3 after every G#3 on G fret 1 |
+| Octave-below ghost of a loud note | 2 | quiet G#2 under G#3 (the filter only removes ghosts *above*) |
+| One held note split in two | 2 | E3 |
+| Noise before playing starts | 2 | quiet A2 and D2 (below the guitar's range, so reported as unplayable) |
+| Wrong octave | 1 | E5 instead of E4 |
+
+The two missed notes were a softly played F#4 and that octave error. The
+octave-ghost filter removed 3 real ghosts (G#4 above G#3) in `no_chord4` and
+nothing elsewhere.
+
+**String/fret choices.** Given the correct notes, both the optimizer and the
+baseline chose the same string and fret as the player for 59 of 61 notes. The
+two differences are the same choice in `no_chord1` and `no_chord2`: E4 on the
+open e string instead of fret 5 on B. All four phrases sit in open position,
+where the lowest fret is already the natural choice, so the optimizer has
+nothing to improve here. It matters for phrases higher up the neck.
+
+**Transcription errors, not the optimizer, cause the odd fingerings.** On the
+model's output for `no_chord3`, the optimizer played C#4 at fret 11 on the D
+string. The extra E5 needs fret 12, which pulls the hand up the neck. On the
+correct notes it matched all 12 of the player's positions. Scoring the
+optimizer on reference notes as well as model output is what makes this
+visible (spec principle 4).
+
+Four short phrases in one position aren't an accuracy benchmark; Phase 6 adds
+a proper evaluation set.
 
 ### Known limitations
 
-Apart from the octave ghosts and the ringing open string above, these come
+Apart from the octave ghosts and ringing open strings above, these come
 from Basic Pitch's documented behaviour and haven't been measured on real
 guitar yet. Phase 6 adds measurements.
 

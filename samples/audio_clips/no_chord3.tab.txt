@@ -1,0 +1,23 @@
+# Reference tab for no_chord3.m4a (what was actually played)
+# Recorded on a phone (M4A/AAC), standard tuning. Single notes only, no chords.
+
+e|-----0-5-4-2-----0-2-0---|
+B|-0-2---------4-4-------0-|
+G|-------------------------|
+D|-------------------------|
+A|-------------------------|
+E|-------------------------|
+
+# The same 12 notes in order: string, fret, pitch (MIDI)
+# 1  B 0  B3  59
+# 2  B 2  C#4 61
+# 3  e 0  E4  64
+# 4  e 5  A4  69
+# 5  e 4  G#4 68
+# 6  e 2  F#4 66
+# 7  B 4  D#4 63
+# 8  B 4  D#4 63
+# 9  e 0  E4  64
+# 10 e 2  F#4 66
+# 11 e 0  E4  64
+# 12 B 0  B3  59

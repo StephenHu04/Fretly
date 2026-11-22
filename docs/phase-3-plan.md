@@ -210,11 +210,14 @@ since it takes audio too and detects the input type from the extension.
   (decision 010).
 - **Weights:** hand-tuned in 3.5 and checked in 3.8. Learning them from
   GuitarSet fingerings is a Phase 6 stretch goal.
-- **Ghost thresholds:** set from synthetic audio. The first real recording
-  (`no_chord1`) had no octave ghosts at all; retune once more clips are in.
-- **Ringing open strings:** in `no_chord1`, lifting a finger off a fretted note
-  let the open string ring, and the model reported it as a note (B3 twice). A
-  second cleanup filter could drop a short, quiet note at an open-string pitch
-  that starts as a fretted note on that string ends. It needs string positions,
-  so it would run after assignment rather than before it. Candidate for after
-  3.8, tested against `no_chord1` and its reference tab.
+- **Ghost thresholds:** set from synthetic audio. On four real clips the filter
+  removed 3 real ghosts (G#4 above G#3) and no real notes. Ghosts also appear
+  an octave *below* loud notes (2 quiet G#2s in `no_chord4`); the filter
+  doesn't handle those yet.
+- **Ringing open strings (top priority):** lifting a finger off a fretted note
+  lets the open string ring, and the model reports it as a note. That's 12 of
+  the 19 extra notes across the four real clips (B3 and G3). A cleanup filter
+  could drop a short, quiet note at an open-string pitch that starts as a
+  fretted note on that string ends. It needs string positions, so it would run
+  after assignment rather than before it. Test cases: `no_chord1`–`4` and their
+  reference tabs.
