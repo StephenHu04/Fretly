@@ -16,8 +16,9 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
   [a first real recording](#observed-on-a-real-recording) (11 of 12 notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
-  optimizer and plain-text tab output are done; a single audio-to-tab command
-  is next (see the [plan](docs/phase-3-plan.md)).
+  optimizer, plain-text tab output and an [audio-to-tab command](#making-tabs)
+  are done; comparing the optimizer with the baseline is next (see the
+  [plan](docs/phase-3-plan.md)).
 
 ## Setup
 
@@ -185,6 +186,45 @@ guitar yet. Phase 6 adds measurements.
 - Notes shorter than `--min-note-ms` (default ~128 ms) are dropped, which can
   lose fast passages.
 
+## Making tabs
+
+From `backend/` with the environment active:
+
+```bash
+python scripts/make_tab.py ../samples/audio_clips/no_chord1.m4a       # audio -> tab
+python scripts/make_tab.py clip.mid                                   # MIDI -> tab
+python scripts/make_tab.py clip.m4a --method both                     # optimizer vs baseline
+python scripts/make_tab.py clip.m4a --json                            # machine-readable
+```
+
+Audio goes through transcription first (as in the previous section); MIDI
+files skip it. Then octave ghosts are removed (`--no-ghost-filter` keeps
+them), each note gets a string and fret, and the result prints as tab with
+playability metrics:
+
+```text
+Input: no_chord1.m4a (5.61 s, M4A), transcribed in 22.1 s
+Notes: 13 detected, 0 removed as octave ghosts
+
+Optimized:
+e|-0-----0-----0-----0---4-|
+B|---4-0---4-0---4-0---0-0-|
+G|-------------------------|
+D|-------------------------|
+A|-------------------------|
+E|-------------------------|
+
+                         optimized
+position shifts                  0
+...
+```
+
+Rhythm isn't shown yet: columns are evenly spaced. Simultaneous notes share a
+column, but chord fingering isn't optimized yet (Phase 3, milestone 3.9).
+
+If `make_tab.py` fails with `No module named 'tab'`, the environment was
+installed before the `tab` package existed; rerun `pip install -e . --no-deps`.
+
 ## Benchmarking
 
 From `backend/` with the environment active:
@@ -264,6 +304,7 @@ backend/
   pipeline/preprocess.py         FFmpeg conversion to mono 22.05 kHz WAV
   pipeline/transcribe.py         Basic Pitch wrapper (audio -> MIDI)
   pipeline/midi_parser.py        MIDI / model output -> NoteEvent
+  pipeline/run.py                validate -> preprocess -> transcribe in one call
   tab/fretboard.py               tuning, positions, candidate string/fret positions
   tab/cleanup.py                 octave-ghost filter for model output
   tab/assign.py                  assignment types and the lowest-fret baseline
@@ -272,6 +313,7 @@ backend/
   tab/render.py                  plain-text tablature
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
+  scripts/make_tab.py            command-line audio or MIDI -> tab
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark
   tests/                         pytest suite (fixtures generated at runtime)
 samples/                         local recordings (audio files are git-ignored)

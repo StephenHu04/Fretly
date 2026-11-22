@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.6 done (2026-11-21); 3.7 next. Each milestone below is
+**Status:** 3.1–3.7 done (2026-11-21); 3.8 next. Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -31,7 +31,7 @@ backend/tab/
   optimizer.py   dynamic programming (Viterbi) assigner
   metrics.py     playability metrics
   render.py      plain-text tab
-backend/scripts/tab_from_midi.py   MIDI or audio -> tab + metrics
+backend/scripts/make_tab.py        audio or MIDI -> tab + metrics
 ```
 
 Core types:
@@ -180,10 +180,12 @@ drop-D labels and empty input.
 Later, not in 3.6: spacing proportional to time between notes, bar lines once
 tempo is known, and technique marks (`h`, `p`, `/`).
 
-### 3.7 Command-line tool
-`python scripts/tab_from_midi.py clip.mid [--method baseline|optimized] [--json]`
-prints the tab, the metrics, filtered ghosts and unplayable notes. An `--audio`
-option runs the Phase 2 pipeline first.
+### 3.7 Command-line tool ✅
+`python scripts/make_tab.py <audio or .mid> [--method optimized|baseline|both] [--json]`
+prints the tab, the metrics, filtered ghosts and unplayable notes. Audio files
+run the Phase 2 pipeline first (shared with `transcribe_audio.py` through
+`pipeline/run.py`); `.mid` files skip it. Renamed from `tab_from_midi.py`,
+since it takes audio too and detects the input type from the extension.
 
 ### 3.8 Baseline vs optimizer
 - A small set of fixed test phrases (scale runs, a riff with position shifts,
