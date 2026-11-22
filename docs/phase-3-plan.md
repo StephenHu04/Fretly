@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.5 done (2026-11-20); 3.6 next. Each milestone below is
+**Status:** 3.1–3.6 done (2026-11-21); 3.7 next. Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -116,7 +116,7 @@ state(b)           = w_height * fret_b                      (mild preference for
   a repeated note keeps its position, a large jump takes one shift instead of
   several, ties resolve deterministically, it never picks an invalid candidate.
 
-### 3.6 Plain-text tab
+### 3.6 Plain-text tab ✅
 `tab/render.py`: `render_tab(assignment, fretboard, width=80) -> str`. It takes
 an `Assignment` from either assigner and returns plain text in the usual
 guitar-tab layout, the same style as the reference tabs in `samples/`.
@@ -152,7 +152,7 @@ Layout rules:
 | Rule | Detail |
 |---|---|
 | Lines | One per string, high e at the top. Each starts with its label and `\|` and ends with `-\|` |
-| Labels | Note name of each open string, from the tuning (`e B G D A E`; drop D gives `e B G D A D`). The highest string is lower-case when its letter repeats another string's |
+| Labels | Note name of each open string, from the tuning (`e B G D A E`; drop D gives `e B G D A D`). The top string is always lower-case, the usual tab convention, so high `e` is never confused with low `E`. Sharps widen every label (`d# A# F# ...`) |
 | Columns | One per onset. Notes starting within 30 ms of each other share a column (double stops now, chords in 3.9) |
 | Same-string clash | If two notes in one column land on the same string (possible before 3.9), the later one moves to the next column, so nothing is overwritten |
 | Spacing | Each column is `-` plus the fret number, padded with `-` to the widest number in that column, so two-digit frets stay aligned (example below) |

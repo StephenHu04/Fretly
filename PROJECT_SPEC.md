@@ -425,7 +425,7 @@ Tasks:
 - [x] Generate valid candidates for each pitch.
 - [x] Implement a baseline dynamic programming optimizer for monophonic notes.
 - [x] Add a basic playability cost function.
-- [ ] Generate plain-text tablature.
+- [x] Generate plain-text tablature.
 - [ ] Add unit tests for edge cases.
 - [ ] Add simple chord support if the monophonic version is stable.
 - [x] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch

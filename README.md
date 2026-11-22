@@ -15,9 +15,9 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
   [benchmarked](#benchmarking), and has been checked against
   [a first real recording](#observed-on-a-real-recording) (11 of 12 notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
-  filter, lowest-fret baseline, playability metrics and dynamic programming
-  optimizer are done; plain-text tab output is next (see the
-  [plan](docs/phase-3-plan.md)).
+  filter, lowest-fret baseline, playability metrics, dynamic programming
+  optimizer and plain-text tab output are done; a single audio-to-tab command
+  is next (see the [plan](docs/phase-3-plan.md)).
 
 ## Setup
 
@@ -269,6 +269,7 @@ backend/
   tab/assign.py                  assignment types and the lowest-fret baseline
   tab/metrics.py                 playability metrics (shifts, stretch, travel)
   tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer
+  tab/render.py                  plain-text tablature
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark
