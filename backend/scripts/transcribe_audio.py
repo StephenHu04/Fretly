@@ -11,13 +11,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from pathlib import Path
 
-from pipeline.audio_validation import validate_audio
 from pipeline.errors import PipelineError
-from pipeline.preprocess import preprocess_audio
-from pipeline.transcribe import TranscriptionSettings, transcribe
+from pipeline.run import transcribe_file
+from pipeline.transcribe import TranscriptionSettings
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,21 +41,8 @@ def main(argv: list[str] | None = None) -> int:
         minimum_note_length_ms=args.min_note_ms,
     )
 
-    timings: dict[str, float] = {}
     try:
-        t0 = time.perf_counter()
-        info = validate_audio(src)
-        timings["validate_s"] = time.perf_counter() - t0
-
-        model_input = src
-        if not args.skip_preprocess:
-            t0 = time.perf_counter()
-            model_input = preprocess_audio(src, out_dir / f"{src.stem}.22k.wav")
-            timings["preprocess_s"] = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        result = transcribe(model_input, out_dir / f"{src.stem}.mid", settings)
-        timings["transcribe_s"] = time.perf_counter() - t0
+        info, result, timings = transcribe_file(src, out_dir, settings, args.skip_preprocess)
     except PipelineError as exc:
         print(f"error [{exc.code}]: {exc.message}", file=sys.stderr)
         return 1
