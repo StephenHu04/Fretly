@@ -7,6 +7,9 @@ Two separate scores, so transcription errors and fret-choice errors don't mix
 - positions: given the *reference* notes, how often an assigner picks the
   same string and fret as the player.
 
+Plus one end-to-end score that combines both: played notes that end up in the
+final tab exactly as played.
+
 Reference files are the ``*.tab.txt`` files in ``samples/``: a tab for people
 plus one ``# <n> <string> <fret> <name> <pitch>`` comment line per note.
 """
@@ -18,6 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from pipeline.midi_parser import NoteEvent
+from tab.assign import Assignment
 from tab.fretboard import Fretboard, Position
 from tab.render import string_labels
 
@@ -112,3 +116,14 @@ def position_agreement(reference: Sequence[Position], assigned: Sequence[Positio
     if len(reference) != len(assigned):
         raise ValueError("reference and assigned positions differ in length")
     return sum(r == a for r, a in zip(reference, assigned, strict=True))
+
+
+def exact_in_tab(reference: Sequence[Position], assignment: Assignment, fretboard: Fretboard) -> int:
+    """End to end: played notes that appear in the tab on the player's string and fret.
+
+    Each played note is matched to a tabbed note by pitch (as in
+    ``score_detection``); a match counts only if the position is the same too.
+    """
+    tabbed = sorted(assignment.notes, key=lambda t: (t.note.start_s, t.note.pitch))
+    pairs = match_pitches([fretboard.pitch_at(p) for p in reference], [t.note.pitch for t in tabbed])
+    return sum(reference[i] == tabbed[j].position for i, j in pairs)

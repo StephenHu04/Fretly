@@ -8,7 +8,8 @@ import pytest
 from pipeline import transcribe as transcribe_module
 from pipeline.midi_parser import NoteEvent
 from scripts.evaluate import find_audio, main
-from tab.evaluation import match_pitches, parse_reference, position_agreement, score_detection
+from tab.assign import Assignment, TabNote
+from tab.evaluation import exact_in_tab, match_pitches, parse_reference, position_agreement, score_detection
 from tab.fretboard import Fretboard, Position
 from tests.conftest import WriteTone
 from tests.test_transcribe import FakePredict
@@ -109,11 +110,22 @@ def test_evaluate_end_to_end_with_fake_model(
     assert (clip["played"], clip["correct"], clip["missed"], clip["extra"]) == (2, 2, [], [])
     # Both assigners put G4 on open-position e fret 3, not B fret 8.
     assert clip["positions_matching"] == {"optimized": 1, "baseline": 1}
+    assert clip["exact_in_tab"] == {"optimized": 1, "baseline": 1}
 
     assert main([str(clips), "--out-dir", str(tmp_path / "out"), "-v"]) == 0
-    assert "Recall    100%" in capsys.readouterr().out
+    assert "Recall      100%" in capsys.readouterr().out
 
 
 def test_evaluate_without_references(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main([str(tmp_path)]) == 1
     assert "no reference tabs" in capsys.readouterr().err
+
+
+def test_exact_in_tab_needs_the_right_note_and_position() -> None:
+    reference = [Position(1, 0), Position(2, 5), Position(2, 0)]  # E4 E4 B3
+    tabbed = [
+        TabNote(NoteEvent(0.0, 0.4, 64, 80), Position(1, 0)),  # right
+        TabNote(NoteEvent(0.5, 0.9, 64, 80), Position(1, 0)),  # right note, wrong string
+        TabNote(NoteEvent(0.7, 0.9, 52, 80), Position(4, 2)),  # extra note
+    ]  # B3 missed
+    assert exact_in_tab(reference, Assignment(tabbed, []), BOARD) == 1

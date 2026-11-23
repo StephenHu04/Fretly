@@ -4,8 +4,10 @@ For every ``<name>.tab.txt`` it finds the matching audio (``<name>.m4a`` etc.),
 runs transcription and cleanup, and reports:
 
 - detection: played notes found, missed and extra (precision / recall);
-- positions: with the reference notes as input, how often each assigner picks
-  the same string and fret as the player.
+- frets: with the reference notes as input, how often each assigner picks the
+  same string and fret as the player;
+- in tab: end to end, played notes that appear in the final tab exactly as
+  played (right note, right string and fret).
 
 Usage:
     python scripts/evaluate.py                       # every reference under ../samples
@@ -27,7 +29,7 @@ from pipeline.midi_parser import NoteEvent, midi_to_note_name
 from pipeline.run import transcribe_file
 from tab.assign import assign_lowest_fret
 from tab.cleanup import clean_notes
-from tab.evaluation import parse_reference, position_agreement, score_detection
+from tab.evaluation import exact_in_tab, parse_reference, position_agreement, score_detection
 from tab.fretboard import Fretboard
 from tab.optimizer import assign_optimized
 
@@ -66,10 +68,12 @@ def evaluate_clip(
     # Fret choices are scored on the reference notes, so transcription
     # mistakes can't affect them. Timing is synthetic (one note every 0.3 s).
     ref_notes = [NoteEvent(i * 0.3, (i + 1) * 0.3, p, 80) for i, p in enumerate(pitches)]
+    assigners = (("optimized", assign_optimized), ("baseline", assign_lowest_fret))
     agreement = {
         name: position_agreement(positions, [t.position for t in assign(ref_notes, fretboard).notes])
-        for name, assign in (("optimized", assign_optimized), ("baseline", assign_lowest_fret))
+        for name, assign in assigners
     }
+    in_tab = {name: exact_in_tab(positions, assign(cleanup.kept, fretboard), fretboard) for name, assign in assigners}
     return {
         "clip": audio.stem,
         "played": detection.played,
@@ -82,6 +86,7 @@ def evaluate_clip(
             for reason, ns in cleanup.removed.items()
         },
         "positions_matching": agreement,
+        "exact_in_tab": in_tab,
     }
 
 
@@ -90,36 +95,56 @@ def _pct(part: int, whole: int) -> str:
 
 
 def format_report(clips: list[dict[str, Any]], verbose: bool) -> str:
-    header = f"{'clip':<14}{'played':>7}{'found':>7}{'missed':>7}{'extra':>7}   {'optimizer':>10}{'baseline':>10}"
-    lines = ["Detection (notes) and string/fret agreement with the reference", "", header]
-    total = dict.fromkeys(("played", "correct", "missed", "extra", "opt", "base", "detected"), 0)
-    for c in clips:
-        opt, base = c["positions_matching"]["optimized"], c["positions_matching"]["baseline"]
-        lines.append(
-            f"{c['clip']:<14}{c['played']:>7}{c['correct']:>7}{len(c['missed']):>7}{len(c['extra']):>7}"
-            f"   {opt:>4}/{c['played']:<5}{base:>4}/{c['played']:<5}"
+    def row(label: str, c: dict[str, int]) -> str:
+        n = c["played"]
+        return (
+            f"{label:<12}{n:>7}{c['correct']:>7}{c['missed']:>7}{c['extra']:>7}"
+            f"   {c['frets_opt']:>3}/{n:<4}{c['frets_base']:>3}/{n:<4}"
+            f"   {c['tab_opt']:>3}/{n:<4}{c['tab_base']:>3}/{n:<4}"
         )
+
+    lines = [
+        f"{'':<40}   {'frets':<16}   {'in tab':<16}",
+        f"{'clip':<12}{'played':>7}{'found':>7}{'missed':>7}{'extra':>7}   {'optim.':<8}{'base':<8}   {'optim.':<8}{'base':<8}",
+    ]
+    total = dict.fromkeys(
+        ("played", "detected", "correct", "missed", "extra", "frets_opt", "frets_base", "tab_opt", "tab_base"), 0
+    )
+    for c in clips:
+        counts = {
+            "played": c["played"],
+            "detected": c["detected"],
+            "correct": c["correct"],
+            "missed": len(c["missed"]),
+            "extra": len(c["extra"]),
+            "frets_opt": c["positions_matching"]["optimized"],
+            "frets_base": c["positions_matching"]["baseline"],
+            "tab_opt": c["exact_in_tab"]["optimized"],
+            "tab_base": c["exact_in_tab"]["baseline"],
+        }
+        lines.append(row(c["clip"], counts))
         if verbose:
             if c["missed"]:
-                lines.append(f"{'':<14}missed: {', '.join(c['missed'])}")
+                lines.append(f"{'':<12}missed: {', '.join(c['missed'])}")
             if c["extra"]:
                 extras = ", ".join(f"{e['name']}@{e['start_s']:.2f}s" for e in c["extra"])
-                lines.append(f"{'':<14}extra:  {extras}")
+                lines.append(f"{'':<12}extra:  {extras}")
             for reason, removed in c["removed"].items():
                 if removed:
                     names = ", ".join(f"{r['name']}@{r['start_s']:.2f}s" for r in removed)
-                    lines.append(f"{'':<14}removed ({reason.replace('_', ' ')}): {names}")
-        for key, value in (("played", c["played"]), ("correct", c["correct"]), ("missed", len(c["missed"])),
-                           ("extra", len(c["extra"])), ("opt", opt), ("base", base), ("detected", c["detected"])):
-            total[key] += value
-    lines.append(
-        f"{'total':<14}{total['played']:>7}{total['correct']:>7}{total['missed']:>7}{total['extra']:>7}"
-        f"   {total['opt']:>4}/{total['played']:<5}{total['base']:>4}/{total['played']:<5}"
-    )
+                    lines.append(f"{'':<12}removed ({reason.replace('_', ' ')}): {names}")
+        for key in total:
+            total[key] += counts[key]
+    lines.append(row("total", total))
+    n = total["played"]
     lines += [
         "",
-        f"Recall    {_pct(total['correct'], total['played'])}  (played notes that were found)",
-        f"Precision {_pct(total['correct'], total['detected'])}  (detected notes that were really played)",
+        f"Recall      {_pct(total['correct'], n)}  played notes that were heard",
+        f"Precision   {_pct(total['correct'], total['detected'])}  detected notes that were really played",
+        f"Frets       optimizer {_pct(total['frets_opt'], n)}, baseline {_pct(total['frets_base'], n)}"
+        "  player's string/fret, given the correct notes",
+        f"In tab      optimizer {_pct(total['tab_opt'], n)}, baseline {_pct(total['tab_base'], n)}"
+        "  played notes exactly right in the final tab",
     ]
     return "\n".join(lines)
 
