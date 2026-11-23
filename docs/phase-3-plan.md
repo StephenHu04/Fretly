@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.7 done (2026-11-21); 3.8 next. Each milestone below is
+**Status:** 3.1–3.7 done (2026-11-21); 3.8 in progress (optimizer retuned 2026-11-22). Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -196,17 +196,25 @@ since it takes audio too and detects the input type from the extension.
   or travel overall.
 - **Also judge against real players, not only our metrics.** `evaluate.py`
   already scores how often each assigner matches the player's string and fret
-  on reference tabs. As of 2026-11-22 the optimizer matches 69/93 notes and the
-  baseline 77/93: on `no_chord5/6` it prefers open strings and a B-string run
-  at frets 7–9 to avoid one small shift (see README). Candidate changes:
-  - stop treating open strings as free once the hand is up the neck;
-  - make small shifts (1–2 frets) cheap and large ones expensive, instead of
-    one flat shift penalty;
-  - prefer staying on the same string for stepwise runs.
+  on reference tabs, and end to end how many played notes come out exactly
+  right in the tab. Before retuning the optimizer trailed the baseline (frets
+  69/93 vs 77/93, in tab 68/93 vs 74/93): on `no_chord5/6` it preferred open
+  strings and a B-string run at frets 7–9 to avoid one small shift.
+  - Done (decision 012): open strings cost extra once the hand reaches past
+    the first four frets. Now frets 79/93 vs 77/93, in tab 74/93 each, and the
+    synthetic phrases keep their advantage (high run still 0 shifts).
+  - Tried and rejected: lowering the shift penalty and raising the low-fret
+    preference scored higher on frets but made the optimizer copy the baseline
+    (2 shifts on the high run). No weight setting beat the baseline on both
+    scores: the remaining end-to-end gap is transcription errors (`no_chord3`)
+    and a fingering neither assigner makes (`no_chord1/2`).
+  - Remaining: the comparison phrases and side-by-side script above, a
+    higher-neck recording (the pentatonic-at-fret-5 case), and reducing how far
+    one misheard note can drag the optimizer.
 
-  Each change is checked with `evaluate.py` on all six clips, not just the
-  one it was made for. The pentatonic-at-fret-5 example (optimizer drops to
-  open position) is a second target; it needs a recording first.
+  There are only three distinct phrases so far (`no_chord2` and `no_chord6`
+  repeat 1 and 5), so further tuning would memorise them. New recordings come
+  first.
 
 ### 3.9 Simple chords (if 3.1–3.8 are stable)
 - Group notes whose onsets fall within 30 ms.

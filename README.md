@@ -149,15 +149,19 @@ Six single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
 matched to played notes in order (longest common subsequence of pitches).
 Measured 2026-11-22 at default settings:
 
-| Clip | Played | Found | Missed | Extra | Fret choices matching (optimizer / baseline) |
-|---|---|---|---|---|---|
-| no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 |
-| no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 |
-| no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 |
-| no_chord4 | 25 | 25 | 0 | 5 | 25 / 25 |
-| no_chord5 | 16 | 16 | 0 | 6 | 5 / 9 |
-| no_chord6 | 16 | 15 | 1 | 5 | 5 / 9 |
-| **Total** | **93** | **90** | **3** | **24** | **69 / 77** |
+| Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
+|---|---|---|---|---|---|---|
+| no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 | 10 / 10 |
+| no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 | 11 / 11 |
+| no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 | 9 / 11 |
+| no_chord4 | 25 | 25 | 0 | 5 | 25 / 25 | 24 / 25 |
+| no_chord5 | 16 | 16 | 0 | 6 | 10 / 9 | 12 / 9 |
+| no_chord6 | 16 | 15 | 1 | 5 | 10 / 9 | 8 / 8 |
+| **Total** | **93** | **90** | **3** | **24** | **79 / 77 (85% / 83%)** | **74 / 74 (80% / 80%)** |
+
+*Frets*: given the correct notes, how often the assigner picks the player's
+string and fret. *In tab*: end to end, played notes that appear in the final
+tab exactly as played (right note, string and fret).
 
 **Detection: recall 97%, precision 79%.** Nearly every played note is found;
 about one detected note in five is extra. On the first four clips the extras
@@ -177,25 +181,26 @@ notes and no real ones, a first sign it isn't just fitted to the clips it was
 built on. The new clips' remaining extras are mostly low notes (G2, E2, E3)
 that look like sympathetic resonance of the lower strings.
 
-**String/fret choices: the optimizer loses to the baseline on `no_chord5/6`.**
-Given the correct notes, it matches the player's string and fret for 69 of 93
-notes (74%), the baseline for 77 (83%). On the four open-position clips they
-tie, because the lowest fret is already the natural choice there. The
-difference is the phrase in `no_chord5/6`, which sits around frets 2–7 and
-frets notes the player could have played open:
+**String/fret choices.** On the four open-position clips the optimizer and
+the baseline tie, because the lowest fret is already the natural choice there.
+The difference is the phrase in `no_chord5/6`, which sits around frets 2–7 and
+frets notes the player could have played open. The first version of the
+optimizer treated open strings as free and lost to the baseline there (69/93
+vs 77/93 on frets, 68/93 vs 74/93 in the tab). It now charges for an open
+string once the hand has moved past the first four frets (decision 012):
 
 ```text
-Played                              Optimizer
-e|-7-----------------4-2-4-2-2-0---|  e|-7-0-------0-----------------0---|
-B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|
-G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|
+Played                                Optimizer before                      Optimizer now
+e|-7-----------------4-2-4-2-2-0---|  e|-7-0-------0-----------------0---|  e|-7---------0-2-----4-2-4-2-2-0---|
+B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|---5-2-2-4-----0-0-------------2-|
+G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-By its own cost function the optimizer's version is better (0 position shifts
-instead of 1, lower cost), but no guitarist would play it. It treats open
-strings as free and avoids a small two-fret move down the neck by moving a
-whole run to frets 7–9 on the B string. The cost function doesn't yet capture
-what the player values, which is what milestone 3.8 tunes.
+It now beats the baseline on fret choice (79/93 vs 77/93) and ties it end to
+end (74/93 each). It isn't ahead end to end because the remaining errors aren't
+fret-choice problems. In `no_chord3` the model hears E5 instead of E4, and the
+optimizer follows that wrong note up the neck while the baseline ignores it.
+In `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
 
 **Transcription errors, not the optimizer, cause some odd fingerings.** On the
 model's output for `no_chord3`, the optimizer played C#4 at fret 11 on the D

@@ -251,3 +251,41 @@ string would be removed too, though none occurs in these clips. The thresholds
 were fitted on the same four clips they're evaluated on, so the gain is
 optimistic until new clips confirm it. `--no-ring-filter` turns it off in
 `make_tab.py` and `evaluate.py`.
+
+---
+
+## 012 — Open strings cost extra once the hand is past open position
+
+**Date:** 2026-11-22 · **Status:** Accepted
+
+**Context.** On six reference clips (`scripts/evaluate.py`) the optimizer
+matched the player's string and fret less often than the lowest-fret baseline
+(69/93 vs 77/93) and was worse end to end (68/93 vs 74/93 notes exactly right
+in the tab). All of the loss was `no_chord5/6`, a phrase around frets 2–7. The
+player frets notes there that could be open (E4 at B5, B3 at G4), but the
+optimizer treated open strings as free and bent the phrase around them. In the
+open-position clips the same player uses open strings freely, even right after
+fret 4.
+
+**Options.**
+1. Re-weight the existing terms. A sweep of 540 settings found higher fret
+   agreement by lowering the shift penalty and raising the low-fret preference,
+   but that made the optimizer copy the baseline: the synthetic high run went
+   from 0 position shifts to 2.
+2. Charge for an open string in proportion to how far up the neck the hand
+   is. Using the window's lowest fret couldn't separate the two cases (the hand
+   is at fret 4 in both), so the fit broke one clip to fix another.
+3. Charge for an open string only for each fret the hand reaches *past* the
+   first four (one hand span, the same window the metrics use): free in open
+   position, increasingly expensive above it.
+
+**Decision.** Option 3, `open_string_weight` 0.5 per fret, with
+`height_weight` lowered from 0.1 to 0.05. The other weights are unchanged.
+
+**Consequences.** Frets 79/93 (85%) vs the baseline's 77/93; end to end 74/93
+(80%), a tie. The synthetic cases keep their advantage. The optimizer now
+follows a misheard high note (E5 in `no_chord3`) further, because once the
+hand is high it avoids open strings. That costs 2 notes there. The clips
+contain only three distinct phrases, all from one player, so these weights are
+a starting point, not a result. They need re-checking on new recordings,
+especially higher up the neck.
