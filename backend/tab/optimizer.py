@@ -24,11 +24,12 @@ from tab.metrics import HAND_SPAN_FRETS
 
 @dataclass(frozen=True)
 class OptimizerSettings:
-    # Hand-picked starting weights; compared against the baseline in 3.8.
+    # Chosen against six reference clips with scripts/evaluate.py (decision 012).
     move_weight: float = 1.0  # per fret the hand moves between fretted notes
     shift_weight: float = 5.0  # per position shift (leaving the 4-fret window)
     string_weight: float = 0.5  # per string crossed between consecutive notes
-    height_weight: float = 0.1  # per fret, so ties prefer lower positions
+    height_weight: float = 0.05  # per fret, so ties prefer lower positions
+    open_string_weight: float = 0.5  # per fret the hand reaches above open position, for an open string
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,12 @@ def _step(
     if prev is not None:
         cost += settings.string_weight * abs(pos.string - prev.string)
     if pos.is_open:
-        return cost, hand  # the fretting hand stays where it was
+        # The fretting hand stays where it was. In open position (the hand
+        # within the first 4 frets) open strings are the natural choice;
+        # higher up, players keep to fretted notes.
+        if hand is not None:
+            cost += settings.open_string_weight * max(0, hand.high - HAND_SPAN_FRETS)
+        return cost, hand
     fret = pos.fret
     if hand is None:
         return cost, _Hand(fret, fret, fret)

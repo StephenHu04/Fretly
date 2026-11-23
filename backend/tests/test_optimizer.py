@@ -112,3 +112,39 @@ def test_empty_and_all_unplayable_input() -> None:
     notes = melody([10, 20])
     result = assign_optimized(notes, BOARD)
     assert result.notes == [] and result.unplayable == notes
+
+
+# --- Open strings and hand position (decision 012) -----------------------------
+
+
+def test_open_strings_are_used_in_open_position() -> None:
+    # no_chord1: the hand stays within the first 4 frets, so E4 and B3 go open.
+    path = positions([64, 63, 59, 64, 63, 59])
+    assert path == [Position(1, 0), Position(2, 4), Position(2, 0)] * 2
+
+
+def test_mid_neck_phrase_matches_the_player_more_closely() -> None:
+    # no_chord5: starts on B4 (fret 7 on e, its lowest spot) and stays around
+    # frets 2-7. Free open strings made the optimizer jump to the open e for
+    # E4; the player fretted it at B fret 5.
+    phrase = [71, 64, 61, 61, 63, 64, 66, 59, 59, 68, 66, 68, 66, 66, 64, 61]
+    played = [(1, 7), (2, 5), (3, 6), (3, 6), (2, 4), (2, 5), (2, 7), (3, 4), (3, 4),
+              (1, 4), (1, 2), (1, 4), (1, 2), (1, 2), (1, 0), (2, 2)]  # fmt: skip
+    played_positions = [Position(*p) for p in played]
+
+    def matches(settings: OptimizerSettings | None) -> int:
+        return sum(a == b for a, b in zip(positions(phrase, settings), played_positions, strict=True))
+
+    assert positions(phrase)[1] == Position(2, 5)
+    assert matches(None) == 10
+    assert matches(OptimizerSettings(open_string_weight=0, height_weight=0.1)) == 5  # before decision 012
+
+
+def test_open_string_cost_grows_with_hand_height() -> None:
+    near, far = Position(4, 5), Position(3, 9)  # hand reaching fret 5 vs fret 9
+    open_b = Position(2, 0)
+    settings = OptimizerSettings(height_weight=0, string_weight=0)
+    extra_near = sequence_cost([near, open_b], settings) - sequence_cost([near], settings)
+    extra_far = sequence_cost([far, open_b], settings) - sequence_cost([far], settings)
+    assert extra_near == pytest.approx(settings.open_string_weight * 1)
+    assert extra_far == pytest.approx(settings.open_string_weight * 5)
