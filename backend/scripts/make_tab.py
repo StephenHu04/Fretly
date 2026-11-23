@@ -1,7 +1,8 @@
 """Turn a guitar recording or a MIDI file into tablature.
 
 Pipeline: [audio -> validate -> FFmpeg -> Basic Pitch ->] notes ->
-octave-ghost filter -> string/fret assignment -> plain-text tab + metrics.
+cleanup (octave ghosts, ringing open strings) -> string/fret assignment ->
+plain-text tab + metrics.
 
 Audio files run the Phase 2 transcription first; .mid/.midi files skip it.
 
@@ -24,7 +25,7 @@ from pipeline.midi_parser import NoteEvent, parse_midi
 from pipeline.run import transcribe_file
 from pipeline.transcribe import TranscriptionSettings
 from tab.assign import Assigner, Assignment, assign_lowest_fret
-from tab.cleanup import remove_octave_ghosts
+from tab.cleanup import clean_notes
 from tab.fretboard import Fretboard
 from tab.metrics import PlayabilityMetrics, measure
 from tab.optimizer import assign_optimized
@@ -68,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         help="String/fret assigner (default: optimized)",
     )
     parser.add_argument("--no-ghost-filter", action="store_true", help="Keep octave-ghost notes")
+    parser.add_argument("--no-ring-filter", action="store_true", help="Keep ringing open-string notes")
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Wrap tab lines at this width")
     parser.add_argument("--out-dir", default="outputs", help="Where to write audio/MIDI artifacts")
     parser.add_argument("--skip-preprocess", action="store_true", help="Audio only: skip FFmpeg")
@@ -93,12 +95,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error [{exc.code}]: {exc.message}", file=sys.stderr)
         return 1
 
-    removed: list[NoteEvent] = []
-    if not args.no_ghost_filter:
-        filtered = remove_octave_ghosts(notes)
-        notes, removed = filtered.kept, filtered.removed
-
     fretboard = Fretboard()
+    cleanup = clean_notes(
+        notes, fretboard, octave_ghosts=not args.no_ghost_filter, ringing_open_strings=not args.no_ring_filter
+    )
+    detected, notes = len(notes), cleanup.kept
     methods = list(ASSIGNERS) if args.method == "both" else [args.method]
     assignments = {m: ASSIGNERS[m](notes, fretboard) for m in methods}
     metrics = {m: measure(a) for m, a in assignments.items()}
@@ -107,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps({
             "source": source,
-            "ghosts_removed": [n.to_dict() for n in removed],
+            "removed": {reason: [n.to_dict() for n in ns] for reason, ns in cleanup.removed.items()},
             "results": {
                 m: {
                     "tab": tabs[m],
@@ -126,9 +127,15 @@ def main(argv: list[str] | None = None) -> int:
               f"transcribed in {sum(source['timings'].values()):.1f} s")
     else:
         print(f"Input: {src.name} (MIDI)")
-    print(f"Notes: {len(notes) + len(removed)} detected, {len(removed)} removed as octave ghosts")
-    for n in removed:
-        print(f"  ghost: {n.name} at {n.start_s:.2f} s")
+    removed = ", ".join(
+        f"{len(ns)} {reason.replace('_', ' ')}{'s' if len(ns) > 1 else ''}"
+        for reason, ns in cleanup.removed.items()
+        if ns
+    )
+    print(f"Notes: {detected} detected" + (f", removed {removed}" if removed else ""))
+    for reason, ns in cleanup.removed.items():
+        for n in ns:
+            print(f"  {reason.replace('_', ' ')}: {n.name} at {n.start_s:.2f} s")
     for m in methods:
         print(f"\n{m.capitalize()}:\n{tabs[m]}")
     print("\n" + _metrics_table(metrics))

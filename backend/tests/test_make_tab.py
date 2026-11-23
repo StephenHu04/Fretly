@@ -63,11 +63,11 @@ def test_octave_ghosts_are_removed_and_reported(tmp_path: Path, capsys: pytest.C
     midi = write_midi(tmp_path / "ghost.mid", [(0.0, 0.5, 40, 100), (0.0, 0.5, 52, 45)])
     assert main([str(midi)]) == 0
     out = capsys.readouterr().out
-    assert "1 removed as octave ghosts" in out and "ghost: E3 at 0.00 s" in out
+    assert "removed 1 octave ghost" in out and "octave ghost: E3 at 0.00 s" in out
 
     assert main([str(midi), "--no-ghost-filter", "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ghosts_removed"] == []
+    assert "octave_ghost" not in report["removed"]
     assert len(report["results"]["optimized"]["notes"]) == 2
 
 
@@ -100,7 +100,9 @@ def test_errors_exit_with_code_1(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert "error [unreadable_midi]" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("script", ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py"])
+@pytest.mark.parametrize(
+    "script", ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py", "evaluate.py"]
+)
 def test_scripts_run_as_commands(script: str) -> None:
     # Run the way a user does, so import problems that pytest's path setup
     # hides (e.g. importing from scripts/ or an uninstalled package) show up.
