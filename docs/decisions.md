@@ -221,3 +221,33 @@ fretted candidate instead of 1, plus the hands carried across open strings.
 That's still tiny for 15–60 s clips. The starting weights (move 1.0, shift 5.0,
 string 0.5, low-fret preference 0.1) are hand-picked and get checked against the
 baseline in milestone 3.8.
+
+---
+
+## 011 — Remove ringing open strings using timing and loudness, before assignment
+
+**Date:** 2026-11-22 · **Status:** Accepted
+
+**Context.** Four real clips with reference tabs (`scripts/evaluate.py`) had 19
+extra notes, 12 of them open strings ringing when a finger lifted off a fretted
+note on that string (B3 and G3). The plan expected a filter that runs after
+string assignment. But in `no_chord1` the player fretted E4 on the B string
+while the assigner put it on the open e string, so checking the assigned string
+would miss that case.
+
+**Decision.** `tab.cleanup.remove_ringing_open_strings` runs before assignment.
+It drops a note when (1) its pitch is an open string's, (2) a note that *could*
+be fretted on that string started earlier and ended at most 50 ms after, or 70
+ms before, this note's onset, and (3) this note is at most 0.75 times as loud.
+The thresholds come from every open-string note in the four clips: the ringing
+ones that fit start within ±60 ms of the fretted note ending, at ≤ 0.70 times
+its velocity. The closest real note starts 46 ms after but at 1.41 times the
+velocity, and the next closest 81 ms after.
+
+**Consequences.** Precision 76% → 82%, recall unchanged at 97% (6 ringing notes
+removed, 0 real notes). 6 ringing notes remain because they look like real
+notes on timing and loudness alone. A deliberate quiet pull-off to an open
+string would be removed too, though none occurs in these clips. The thresholds
+were fitted on the same four clips they're evaluated on, so the gain is
+optimistic until new clips confirm it. `--no-ring-filter` turns it off in
+`make_tab.py` and `evaluate.py`.

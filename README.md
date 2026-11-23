@@ -13,7 +13,8 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [four real recordings](#observed-on-real-recordings) (59 of 61 played notes found).
+  [four real recordings](#observed-on-real-recordings) (97% of played notes found, 82% of
+  detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
   optimizer, plain-text tab output and an [audio-to-tab command](#making-tabs)
@@ -143,32 +144,35 @@ This is a smoke test, not an accuracy measurement.
 
 Four single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
 `samples/audio_clips/`, each checked against a tab of what was actually played
-(`no_chord*.tab.txt`). Measured 2026-11-21 with `make_tab.py` at default
-settings (octave-ghost filter on). Detected notes were matched to played notes
-in order (longest common subsequence of pitches).
+(`no_chord*.tab.txt`) with `scripts/evaluate.py`. Detected notes are matched to
+played notes in order (longest common subsequence of pitches). Measured
+2026-11-22 at default settings:
 
-| Clip | Played | Correct | Missed | Extra |
+| Clip | Played | Found | Missed | Extra |
 |---|---|---|---|---|
-| no_chord1 | 12 | 11 | 1 | 2 |
-| no_chord2 | 12 | 12 | 0 | 5 |
-| no_chord3 | 12 | 11 | 1 | 4 |
-| no_chord4 | 25 | 25 | 0 | 8 |
-| **Total** | **61** | **59 (97%)** | **2** | **19** |
+| no_chord1 | 12 | 11 | 1 | 1 |
+| no_chord2 | 12 | 12 | 0 | 4 |
+| no_chord3 | 12 | 11 | 1 | 3 |
+| no_chord4 | 25 | 25 | 0 | 5 |
+| **Total** | **61** | **59** | **2** | **13** |
 
-**Nearly every played note is found, but about one detected note in four is
-extra** (precision 59/78 = 76%). The extras fall into clear groups:
+**Recall 97%, precision 82%.** Without the ringing open-string filter there
+were 19 extra notes (precision 76%); the filter removed 6 of them and no real
+notes. Where the 19 extras came from:
 
-| Cause | Extras | Example |
-|---|---|---|
-| Open string ringing when a finger lifts off it | 12 | B3 after B fret 5 → e fret 2; G3 after every G#3 on G fret 1 |
-| Octave-below ghost of a loud note | 2 | quiet G#2 under G#3 (the filter only removes ghosts *above*) |
-| One held note split in two | 2 | E3 |
-| Noise before playing starts | 2 | quiet A2 and D2 (below the guitar's range, so reported as unplayable) |
-| Wrong octave | 1 | E5 instead of E4 |
+| Cause | Extras | Removed by filters | Example |
+|---|---|---|---|
+| Open string ringing when a finger lifts off it | 12 | 6 | B3 after B fret 5 → e fret 2; G3 after G#3 on G fret 1 |
+| Octave-below ghost of a loud note | 2 | 0 | quiet G#2 under G#3 (the ghost filter only removes ghosts *above*) |
+| One held note split in two | 2 | 0 | E3 |
+| Noise before playing starts | 2 | 0 | quiet A2 and D2 (below the guitar's range, so reported as unplayable) |
+| Wrong octave | 1 | 0 | E5 instead of E4 |
 
-The two missed notes were a softly played F#4 and that octave error. The
-octave-ghost filter removed 3 real ghosts (G#4 above G#3) in `no_chord4` and
-nothing elsewhere.
+The ringing notes left behind are ones the filter can't tell apart from real
+notes yet: they're as loud as the note before them, or don't start where it
+ends (decision 011). The two missed notes were a softly played F#4 and the
+octave error. The octave-ghost filter removed 3 real ghosts (G#4 above G#3) in
+`no_chord4` and nothing elsewhere.
 
 **String/fret choices.** Given the correct notes, both the optimizer and the
 baseline chose the same string and fret as the player for 59 of 61 notes. The
@@ -216,21 +220,23 @@ python scripts/make_tab.py clip.m4a --json                            # machine-
 ```
 
 Audio goes through transcription first (as in the previous section); MIDI
-files skip it. Then octave ghosts are removed (`--no-ghost-filter` keeps
-them), each note gets a string and fret, and the result prints as tab with
-playability metrics:
+files skip it. Then two cleanup filters remove notes nobody played: octave
+ghosts (`--no-ghost-filter` keeps them) and open strings ringing after a
+finger lifts (`--no-ring-filter`). Each remaining note gets a string and fret,
+and the result prints as tab with playability metrics:
 
 ```text
-Input: no_chord1.m4a (5.61 s, M4A), transcribed in 22.1 s
-Notes: 13 detected, 0 removed as octave ghosts
+Input: no_chord1.m4a (5.61 s, M4A), transcribed in 19.4 s
+Notes: 13 detected, removed 1 ringing open string
+  ringing open string: B3 at 4.03 s
 
 Optimized:
-e|-0-----0-----0-----0---4-|
-B|---4-0---4-0---4-0---0-0-|
-G|-------------------------|
-D|-------------------------|
-A|-------------------------|
-E|-------------------------|
+e|-0-----0-----0-----0-4-|
+B|---4-0---4-0---4-0---0-|
+G|-----------------------|
+D|-----------------------|
+A|-----------------------|
+E|-----------------------|
 
                          optimized
 position shifts                  0
@@ -242,6 +248,21 @@ column, but chord fingering isn't optimized yet (Phase 3, milestone 3.9).
 
 If `make_tab.py` fails with `No module named 'tab'`, the environment was
 installed before the `tab` package existed; rerun `pip install -e . --no-deps`.
+
+## Evaluating against reference tabs
+
+```bash
+python scripts/evaluate.py          # every samples/**/<name>.tab.txt with matching audio
+python scripts/evaluate.py -v       # also list missed, extra and filtered notes
+python scripts/evaluate.py --json
+```
+
+For each reference tab it transcribes the matching recording, runs the
+cleanup filters and reports two separate scores (decision 005): **detection**
+(played notes found, missed and extra) and **string/fret agreement** (given
+the *reference* notes, how often each assigner picks the player's string and
+fret). `--no-ghost-filter` and `--no-ring-filter` show what each filter
+contributes. Results are in [Observed on real recordings](#observed-on-real-recordings).
 
 ## Benchmarking
 
@@ -324,14 +345,16 @@ backend/
   pipeline/midi_parser.py        MIDI / model output -> NoteEvent
   pipeline/run.py                validate -> preprocess -> transcribe in one call
   tab/fretboard.py               tuning, positions, candidate string/fret positions
-  tab/cleanup.py                 octave-ghost filter for model output
+  tab/cleanup.py                 cleanup filters: octave ghosts, ringing open strings
   tab/assign.py                  assignment types and the lowest-fret baseline
   tab/metrics.py                 playability metrics (shifts, stretch, travel)
   tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer
   tab/render.py                  plain-text tablature
+  tab/evaluation.py              scoring against reference tabs
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/make_tab.py            command-line audio or MIDI -> tab
+  scripts/evaluate.py            score the pipeline on clips with reference tabs
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark
   tests/                         pytest suite (fixtures generated at runtime)
 samples/                         local recordings (audio files are git-ignored)

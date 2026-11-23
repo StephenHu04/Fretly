@@ -214,10 +214,11 @@ since it takes audio too and detects the input type from the extension.
   removed 3 real ghosts (G#4 above G#3) and no real notes. Ghosts also appear
   an octave *below* loud notes (2 quiet G#2s in `no_chord4`); the filter
   doesn't handle those yet.
-- **Ringing open strings (top priority):** lifting a finger off a fretted note
-  lets the open string ring, and the model reports it as a note. That's 12 of
-  the 19 extra notes across the four real clips (B3 and G3). A cleanup filter
-  could drop a short, quiet note at an open-string pitch that starts as a
-  fretted note on that string ends. It needs string positions, so it would run
-  after assignment rather than before it. Test cases: `no_chord1`–`4` and their
-  reference tabs.
+- **Ringing open strings:** filter added 2026-11-22
+  (`tab.cleanup.remove_ringing_open_strings`, decision 011). It runs before
+  assignment after all, using every string a note *could* be on. It removes 6
+  of the 12 ringing notes in the four clips and no real notes. The other 6
+  are as loud as the note before them or don't start where it ends; telling
+  those apart from real notes may need the audio itself, not just note events.
+- **Octave-below ghosts:** 2 quiet G#2s under G#3 in `no_chord4`. Extending
+  the ghost filter downwards is a small change; measure with `evaluate.py`.
