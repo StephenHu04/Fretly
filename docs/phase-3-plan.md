@@ -194,6 +194,19 @@ since it takes audio too and detects the input type from the extension.
   README, and the chosen weights go in a decision-log entry.
 - Acceptance: the optimizer is no worse on every phrase and better on shifts
   or travel overall.
+- **Also judge against real players, not only our metrics.** `evaluate.py`
+  already scores how often each assigner matches the player's string and fret
+  on reference tabs. As of 2026-11-22 the optimizer matches 69/93 notes and the
+  baseline 77/93: on `no_chord5/6` it prefers open strings and a B-string run
+  at frets 7–9 to avoid one small shift (see README). Candidate changes:
+  - stop treating open strings as free once the hand is up the neck;
+  - make small shifts (1–2 frets) cheap and large ones expensive, instead of
+    one flat shift penalty;
+  - prefer staying on the same string for stepwise runs.
+
+  Each change is checked with `evaluate.py` on all six clips, not just the
+  one it was made for. The pentatonic-at-fret-5 example (optimizer drops to
+  open position) is a second target; it needs a recording first.
 
 ### 3.9 Simple chords (if 3.1–3.8 are stable)
 - Group notes whose onsets fall within 30 ms.

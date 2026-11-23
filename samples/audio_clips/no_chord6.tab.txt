@@ -1,0 +1,27 @@
+# Reference tab for no_chord6.m4a (what was actually played)
+# Recorded on a phone (M4A/AAC), standard tuning. Same phrase as no_chord5 (its reference image is identical to no_chord5.png).
+
+e|-7-----------------4-2-4-2-2-0---|
+B|---5-----4-5-7-----------------2-|
+G|-----6-6-------4-4---------------|
+D|---------------------------------|
+A|---------------------------------|
+E|---------------------------------|
+
+# The same 16 notes in order: string, fret, pitch (MIDI)
+# 1  e 7  B4  71
+# 2  B 5  E4  64
+# 3  G 6  C#4 61
+# 4  G 6  C#4 61
+# 5  B 4  D#4 63
+# 6  B 5  E4  64
+# 7  B 7  F#4 66
+# 8  G 4  B3  59
+# 9  G 4  B3  59
+# 10 e 4  G#4 68
+# 11 e 2  F#4 66
+# 12 e 4  G#4 68
+# 13 e 2  F#4 66
+# 14 e 2  F#4 66
+# 15 e 0  E4  64
+# 16 B 2  C#4 61

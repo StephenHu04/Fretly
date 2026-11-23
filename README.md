@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [four real recordings](#observed-on-real-recordings) (97% of played notes found, 82% of
+  [six real recordings](#observed-on-real-recordings) (97% of played notes found, 79% of
   detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
@@ -142,23 +142,26 @@ This is a smoke test, not an accuracy measurement.
 
 ### Observed on real recordings
 
-Four single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
+Six single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
 `samples/audio_clips/`, each checked against a tab of what was actually played
-(`no_chord*.tab.txt`) with `scripts/evaluate.py`. Detected notes are matched to
-played notes in order (longest common subsequence of pitches). Measured
-2026-11-22 at default settings:
+(`no_chord*.tab.txt`) with `scripts/evaluate.py`. `no_chord2` repeats the
+`no_chord1` phrase and `no_chord6` repeats `no_chord5`. Detected notes are
+matched to played notes in order (longest common subsequence of pitches).
+Measured 2026-11-22 at default settings:
 
-| Clip | Played | Found | Missed | Extra |
-|---|---|---|---|---|
-| no_chord1 | 12 | 11 | 1 | 1 |
-| no_chord2 | 12 | 12 | 0 | 4 |
-| no_chord3 | 12 | 11 | 1 | 3 |
-| no_chord4 | 25 | 25 | 0 | 5 |
-| **Total** | **61** | **59** | **2** | **13** |
+| Clip | Played | Found | Missed | Extra | Fret choices matching (optimizer / baseline) |
+|---|---|---|---|---|---|
+| no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 |
+| no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 |
+| no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 |
+| no_chord4 | 25 | 25 | 0 | 5 | 25 / 25 |
+| no_chord5 | 16 | 16 | 0 | 6 | 5 / 9 |
+| no_chord6 | 16 | 15 | 1 | 5 | 5 / 9 |
+| **Total** | **93** | **90** | **3** | **24** | **69 / 77** |
 
-**Recall 97%, precision 82%.** Without the ringing open-string filter there
-were 19 extra notes (precision 76%); the filter removed 6 of them and no real
-notes. Where the 19 extras came from:
+**Detection: recall 97%, precision 79%.** Nearly every played note is found;
+about one detected note in five is extra. On the first four clips the extras
+were:
 
 | Cause | Extras | Removed by filters | Example |
 |---|---|---|---|
@@ -168,28 +171,40 @@ notes. Where the 19 extras came from:
 | Noise before playing starts | 2 | 0 | quiet A2 and D2 (below the guitar's range, so reported as unplayable) |
 | Wrong octave | 1 | 0 | E5 instead of E4 |
 
-The ringing notes left behind are ones the filter can't tell apart from real
-notes yet: they're as loud as the note before them, or don't start where it
-ends (decision 011). The two missed notes were a softly played F#4 and the
-octave error. The octave-ghost filter removed 3 real ghosts (G#4 above G#3) in
-`no_chord4` and nothing elsewhere.
+The ringing open-string filter (decision 011) was tuned on those four clips.
+On `no_chord5` and `no_chord6`, recorded afterwards, it removed 2 more ringing
+notes and no real ones, a first sign it isn't just fitted to the clips it was
+built on. The new clips' remaining extras are mostly low notes (G2, E2, E3)
+that look like sympathetic resonance of the lower strings.
 
-**String/fret choices.** Given the correct notes, both the optimizer and the
-baseline chose the same string and fret as the player for 59 of 61 notes. The
-two differences are the same choice in `no_chord1` and `no_chord2`: E4 on the
-open e string instead of fret 5 on B. All four phrases sit in open position,
-where the lowest fret is already the natural choice, so the optimizer has
-nothing to improve here. It matters for phrases higher up the neck.
+**String/fret choices: the optimizer loses to the baseline on `no_chord5/6`.**
+Given the correct notes, it matches the player's string and fret for 69 of 93
+notes (74%), the baseline for 77 (83%). On the four open-position clips they
+tie, because the lowest fret is already the natural choice there. The
+difference is the phrase in `no_chord5/6`, which sits around frets 2–7 and
+frets notes the player could have played open:
 
-**Transcription errors, not the optimizer, cause the odd fingerings.** On the
+```text
+Played                              Optimizer
+e|-7-----------------4-2-4-2-2-0---|  e|-7-0-------0-----------------0---|
+B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|
+G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|
+```
+
+By its own cost function the optimizer's version is better (0 position shifts
+instead of 1, lower cost), but no guitarist would play it. It treats open
+strings as free and avoids a small two-fret move down the neck by moving a
+whole run to frets 7–9 on the B string. The cost function doesn't yet capture
+what the player values, which is what milestone 3.8 tunes.
+
+**Transcription errors, not the optimizer, cause some odd fingerings.** On the
 model's output for `no_chord3`, the optimizer played C#4 at fret 11 on the D
-string. The extra E5 needs fret 12, which pulls the hand up the neck. On the
-correct notes it matched all 12 of the player's positions. Scoring the
-optimizer on reference notes as well as model output is what makes this
-visible (spec principle 4).
+string because an extra E5 needs fret 12. On the correct notes it matched all
+12 of the player's positions. Scoring fret choices on reference notes as well
+as model output keeps the two kinds of error apart (spec principle 4).
 
-Four short phrases in one position aren't an accuracy benchmark; Phase 6 adds
-a proper evaluation set.
+Six short phrases from one player aren't an accuracy benchmark; Phase 6 adds a
+proper evaluation set.
 
 ### Known limitations
 
