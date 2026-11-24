@@ -1,0 +1,19 @@
+# Reference tab for pent5.m4a (what was actually played)
+# Recorded on a phone (M4A/AAC), standard tuning. A minor pentatonic, 5th position. Single notes only, frets 5-8.
+
+e|-------------5-8-|
+B|---------5-8-----|
+G|-----5-7---------|
+D|-5-7-------------|
+A|-----------------|
+E|-----------------|
+
+# The same 8 notes in order: string, fret, pitch (MIDI)
+# 1  D 5  G3  55
+# 2  D 7  A3  57
+# 3  G 5  C4  60
+# 4  G 7  D4  62
+# 5  B 5  E4  64
+# 6  B 8  G4  67
+# 7  e 5  A4  69
+# 8  e 8  C5  72

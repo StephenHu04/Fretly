@@ -1,0 +1,21 @@
+# Reference tab for neck1.m4a (what was actually played)
+# Recorded on a phone (M4A/AAC), standard tuning. Melody around frets 7-10. Single notes only.
+
+e|------7-8-10-8-7--------|
+B|-8-10------------10-8---|
+G|----------------------9-|
+D|------------------------|
+A|------------------------|
+E|------------------------|
+
+# The same 10 notes in order: string, fret, pitch (MIDI)
+# 1  B 8  G4  67
+# 2  B 10 A4  69
+# 3  e 7  B4  71
+# 4  e 8  C5  72
+# 5  e 10 D5  74
+# 6  e 8  C5  72
+# 7  e 7  B4  71
+# 8  B 10 A4  69
+# 9  B 8  G4  67
+# 10 G 9  E4  64
