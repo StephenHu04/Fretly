@@ -1,0 +1,21 @@
+# Reference tab for low_walk.m4a (what was actually played)
+# Held-out clip, recorded as New Recording 17 (blind1). Phone (M4A/AAC), standard tuning.
+# D, A and low E strings, frets 0-9. Single notes only.
+# Uncertain: written from memory after recording (2 frets lower at first). The
+# model hears the two low-E fretted notes a semitone higher than this tab.
+
+e|---------------|
+B|---------------|
+G|---------------|
+D|-7-----------9-|
+A|---8-------8---|
+E|-----9-0-7-----|
+
+# The same 7 notes in order: string, fret, pitch (MIDI)
+# 1  D 7  A3  57
+# 2  A 8  F3  53
+# 3  E 9  C#3 49
+# 4  E 0  E2  40
+# 5  E 7  B2  47
+# 6  A 8  F3  53
+# 7  D 9  B3  59

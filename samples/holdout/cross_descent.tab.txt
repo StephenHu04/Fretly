@@ -1,0 +1,21 @@
+# Reference tab for cross_descent.m4a (what was actually played)
+# Held-out clip, recorded as New Recording 18 (blind2). Phone (M4A/AAC), standard tuning.
+# Down across all six strings, frets 7-9 (up within each pair). Single notes only.
+
+e|-7-9---------------|
+B|-----8-------------|
+G|-------7-9---------|
+D|-----------8-------|
+A|-------------7-9---|
+E|-----------------9-|
+
+# The same 9 notes in order: string, fret, pitch (MIDI)
+# 1  e 7  B4  71
+# 2  e 9  C#5 73
+# 3  B 8  G4  67
+# 4  G 7  D4  62
+# 5  G 9  E4  64
+# 6  D 8  A#3 58
+# 7  A 7  E3  52
+# 8  A 9  F#3 54
+# 9  E 9  C#3 49
