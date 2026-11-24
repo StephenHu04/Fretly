@@ -7,7 +7,9 @@ from tab.cleanup import (
     CleanupResult,
     GhostFilterSettings,
     RingingFilterSettings,
+    ThumpFilterSettings,
     clean_notes,
+    remove_low_thumps,
     remove_octave_ghosts,
     remove_ringing_open_strings,
 )
@@ -158,14 +160,71 @@ def test_invalid_ringing_settings_are_rejected(kwargs: dict[str, float]) -> None
         RingingFilterSettings(**kwargs)
 
 
+# --- Low thumps ---------------------------------------------------------------
+
+
+def test_quiet_low_note_under_a_louder_note_is_removed() -> None:
+    # neck1: a G2 thump while D5 (e fret 10) sounds.
+    melody, thump = NoteEvent(4.62, 5.25, 74, 79), NoteEvent(4.62, 4.85, 43, 42)
+    result = remove_low_thumps([melody, thump])
+    assert result.kept == [melody]
+    assert result.removed == [thump]
+
+
+def test_thump_may_start_just_before_the_note() -> None:
+    # no_chord6: G2 starts 70 ms before D#4.
+    notes = [NoteEvent(2.18, 2.44, 43, 47), NoteEvent(2.25, 2.52, 63, 87)]
+    assert len(remove_low_thumps(notes).removed) == 1
+
+
+def test_thump_during_a_held_note_is_removed() -> None:
+    # pent5: A2 0.6 s into a held C5.
+    notes = [NoteEvent(7.97, 8.93, 72, 83), NoteEvent(8.60, 8.86, 45, 40)]
+    assert len(remove_low_thumps(notes).removed) == 1
+
+
+def test_low_note_after_the_louder_one_ends_is_kept() -> None:
+    notes = [NoteEvent(0.0, 0.3, 72, 100), NoteEvent(0.35, 0.6, 45, 40)]
+    assert remove_low_thumps(notes).removed == []
+
+
+@pytest.mark.parametrize(
+    "low",
+    [
+        NoteEvent(0.0, 0.3, 64, 40),  # less than an octave below
+        NoteEvent(0.0, 0.3, 45, 90),  # nearly as loud
+        NoteEvent(0.0, 0.6, 45, 40),  # held too long to be a thump
+    ],
+)
+def test_real_looking_low_notes_are_kept(low: NoteEvent) -> None:
+    assert remove_low_thumps([NoteEvent(0.0, 0.5, 72, 100), low]).removed == []
+
+
+def test_lone_low_note_is_kept() -> None:
+    # pent5: handling noise before playing starts has nothing above it.
+    notes = [NoteEvent(1.51, 1.65, 43, 45)]
+    assert remove_low_thumps(notes).kept == notes
+
+
+def test_thump_settings_are_configurable_and_checked() -> None:
+    notes = [NoteEvent(0.0, 0.5, 72, 100), NoteEvent(0.0, 0.3, 64, 40)]
+    assert len(remove_low_thumps(notes, ThumpFilterSettings(min_interval=7)).removed) == 1
+    for kwargs in ({"min_interval": 0}, {"max_lead_s": -1}, {"max_duration_s": 0}, {"max_velocity_ratio": 2}):
+        with pytest.raises(ValueError):
+            ThumpFilterSettings(**kwargs)
+
+
 def test_clean_notes_runs_each_enabled_filter() -> None:
     real, ghost = NoteEvent(0.0, 0.5, 40, 100), NoteEvent(0.0, 0.5, 52, 45)
     fretted, ringing = NoteEvent(1.0, 1.5, 56, 90), NoteEvent(1.5, 2.0, 55, 50)
-    notes = [real, ghost, fretted, ringing]
+    melody, thump = NoteEvent(3.0, 3.5, 74, 90), NoteEvent(3.0, 3.2, 43, 40)
+    notes = [real, ghost, fretted, ringing, melody, thump]
 
     result = clean_notes(notes, BOARD)
-    assert result.kept == [real, fretted]
-    assert result.removed == {"octave_ghost": [ghost], "ringing_open_string": [ringing]}
+    assert result.kept == [real, fretted, melody]
+    assert result.removed == {"octave_ghost": [ghost], "ringing_open_string": [ringing], "low_thump": [thump]}
 
-    assert clean_notes(notes, BOARD, octave_ghosts=False).removed == {"ringing_open_string": [ringing]}
-    assert clean_notes(notes, BOARD, False, False) == CleanupResult(sorted(notes), {})
+    assert clean_notes(notes, BOARD, octave_ghosts=False, low_thumps=False).removed == {
+        "ringing_open_string": [ringing]
+    }
+    assert clean_notes(notes, BOARD, False, False, False) == CleanupResult(sorted(notes), {})

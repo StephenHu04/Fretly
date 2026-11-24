@@ -5,8 +5,10 @@
   real recordings quiet ghosts an octave *below* a loud note also appear.
 - Ringing open strings: lifting a finger off a fretted note lets the open
   string ring, and the model hears that as a new note (decision 011).
+- Low thumps: short, quiet low notes (mostly G2) under a louder note, from
+  the guitar body or the pick attack (decision 014).
 
-Left in, both become notes nobody played.
+Left in, all of them become notes nobody played.
 """
 
 from __future__ import annotations
@@ -123,6 +125,54 @@ def remove_ringing_open_strings(
 
 
 @dataclass(frozen=True)
+class ThumpFilterSettings:
+    # Fitted on the eight reference clips (2026-11-23); see decision 014.
+    min_interval: int = OCTAVE  # semitones below the louder note
+    max_lead_s: float = 0.08  # may start this long before the louder note
+    max_velocity_ratio: float = 0.8
+    max_duration_s: float = 0.35
+
+    def __post_init__(self) -> None:
+        if self.min_interval < 1:
+            raise ValueError("min_interval must be at least 1")
+        if self.max_lead_s < 0 or self.max_duration_s <= 0:
+            raise ValueError("max_lead_s must be non-negative and max_duration_s positive")
+        if not 0 < self.max_velocity_ratio <= 1:
+            raise ValueError("max_velocity_ratio must be in (0, 1]")
+
+
+def _is_thump_under(candidate: NoteEvent, louder: NoteEvent, settings: ThumpFilterSettings) -> bool:
+    return (
+        candidate.pitch <= louder.pitch - settings.min_interval
+        and louder.start_s - settings.max_lead_s <= candidate.start_s < louder.end_s
+        and candidate.end_s - candidate.start_s <= settings.max_duration_s
+        and candidate.velocity <= settings.max_velocity_ratio * louder.velocity
+    )
+
+
+def remove_low_thumps(notes: Iterable[NoteEvent], settings: ThumpFilterSettings | None = None) -> FilterResult:
+    """Drop short, quiet notes well below a louder note that's sounding at the time.
+
+    On phone recordings the model reports the guitar body's resonance or the
+    pick's attack as a low note (mostly G2) whatever note was played. In
+    single-note playing nothing else sounds under a note, so a short quiet note
+    an octave or more below a louder one is noise. With chords (milestone 3.9)
+    a quiet bass note under a melody can be real, so this filter will need to
+    be off there.
+    """
+    settings = settings or ThumpFilterSettings()
+    ordered = sorted(notes)
+    kept: list[NoteEvent] = []
+    removed: list[NoteEvent] = []
+    for note in ordered:
+        if any(_is_thump_under(note, other, settings) for other in ordered if other is not note):
+            removed.append(note)
+        else:
+            kept.append(note)
+    return FilterResult(kept, removed)
+
+
+@dataclass(frozen=True)
 class CleanupResult:
     kept: list[NoteEvent]
     removed: dict[str, list[NoteEvent]]  # reason -> notes removed for it
@@ -133,6 +183,7 @@ def clean_notes(
     fretboard: Fretboard,
     octave_ghosts: bool = True,
     ringing_open_strings: bool = True,
+    low_thumps: bool = True,
 ) -> CleanupResult:
     """Run the enabled filters in order and report what each one removed."""
     kept = sorted(notes)
@@ -143,4 +194,7 @@ def clean_notes(
     if ringing_open_strings:
         result = remove_ringing_open_strings(kept, fretboard)
         kept, removed["ringing_open_string"] = result.kept, result.removed
+    if low_thumps:
+        result = remove_low_thumps(kept)
+        kept, removed["low_thump"] = result.kept, result.removed
     return CleanupResult(kept, removed)
