@@ -426,13 +426,13 @@ Tasks:
 - [x] Implement a baseline dynamic programming optimizer for monophonic notes.
 - [x] Add a basic playability cost function.
 - [x] Generate plain-text tablature.
-- [ ] Add unit tests for edge cases.
+- [x] Add unit tests for edge cases. (Simultaneous notes wait for chord support.)
 - [ ] Add simple chord support if the monophonic version is stable.
 - [x] Add MIDI cleanup, starting with an octave-ghost filter (Basic Pitch
       emits second-harmonic notes at about half velocity; observed in Phase 2).
 - [x] Define playability metrics explicitly: position shifts per minute,
       maximum stretch, string changes.
-- [ ] Implement a naive baseline (e.g. lowest fret per note) behind the same
+- [x] Implement a naive baseline (e.g. lowest fret per note) behind the same
       interface as the optimizer, and report both on the same metrics.
 
 Acceptance criteria:

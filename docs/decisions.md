@@ -289,3 +289,25 @@ hand is high it avoids open strings. That costs 2 notes there. The clips
 contain only three distinct phrases, all from one player, so these weights are
 a starting point, not a result. They need re-checking on new recordings,
 especially higher up the neck.
+
+---
+
+## 013 — Remove octave ghosts below a note as well as above
+
+**Date:** 2026-11-23 · **Status:** Accepted
+
+**Context.** Decision 009 removed quiet notes an octave *above* a louder note
+(second harmonics). On real recordings the model also reported quiet notes an
+octave *below* (G#2 at velocity 37–47 under G#3 at 90–94 in `no_chord4`), at
+the same onset. Those went into the tab as low E fret 4.
+
+**Decision.** The same rule now applies in both directions: a note exactly
+12 semitones above or below a louder note, starting within 50 ms and at most
+0.6 times as loud, is removed. `GhostFilterSettings(below=False)` restores the
+old behaviour.
+
+**Consequences.** On the six reference clips: 2 extra notes removed, no real
+notes lost; precision 79% → 80%; the optimizer's end-to-end score went from
+74/93 to 75/93 because the fake low notes had pulled one position off. A real
+quiet bass note played an octave under a louder melody note would be removed
+too; that's rare in single-note playing and revisited with chords (3.9).

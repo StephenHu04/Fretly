@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [six real recordings](#observed-on-real-recordings) (97% of played notes found, 79% of
+  [six real recordings](#observed-on-real-recordings) (97% of played notes found, 80% of
   detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
@@ -154,23 +154,23 @@ Measured 2026-11-22 at default settings:
 | no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 | 10 / 10 |
 | no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 | 11 / 11 |
 | no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 | 9 / 11 |
-| no_chord4 | 25 | 25 | 0 | 5 | 25 / 25 | 24 / 25 |
+| no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
 | no_chord5 | 16 | 16 | 0 | 6 | 10 / 9 | 12 / 9 |
 | no_chord6 | 16 | 15 | 1 | 5 | 10 / 9 | 8 / 8 |
-| **Total** | **93** | **90** | **3** | **24** | **79 / 77 (85% / 83%)** | **74 / 74 (80% / 80%)** |
+| **Total** | **93** | **90** | **3** | **22** | **79 / 77 (85% / 83%)** | **75 / 74 (81% / 80%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
 tab exactly as played (right note, string and fret).
 
-**Detection: recall 97%, precision 79%.** Nearly every played note is found;
+**Detection: recall 97%, precision 80%.** Nearly every played note is found;
 about one detected note in five is extra. On the first four clips the extras
 were:
 
 | Cause | Extras | Removed by filters | Example |
 |---|---|---|---|
 | Open string ringing when a finger lifts off it | 12 | 6 | B3 after B fret 5 → e fret 2; G3 after G#3 on G fret 1 |
-| Octave-below ghost of a loud note | 2 | 0 | quiet G#2 under G#3 (the ghost filter only removes ghosts *above*) |
+| Octave-below ghost of a loud note | 2 | 2 | quiet G#2 under G#3 |
 | One held note split in two | 2 | 0 | E3 |
 | Noise before playing starts | 2 | 0 | quiet A2 and D2 (below the guitar's range, so reported as unplayable) |
 | Wrong octave | 1 | 0 | E5 instead of E4 |
@@ -196,9 +196,9 @@ B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|--
 G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-It now beats the baseline on fret choice (79/93 vs 77/93) and ties it end to
-end (74/93 each). It isn't ahead end to end because the remaining errors aren't
-fret-choice problems. In `no_chord3` the model hears E5 instead of E4, and the
+It now beats the baseline on fret choice (79/93 vs 77/93) and is one note
+ahead end to end (75/93 vs 74/93), too small a margin to call. Most of the
+remaining end-to-end errors aren't fret-choice problems. In `no_chord3` the model hears E5 instead of E4, and the
 optimizer follows that wrong note up the neck while the baseline ignores it.
 In `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
 
@@ -281,8 +281,33 @@ For each reference tab it transcribes the matching recording, runs the
 cleanup filters and reports two separate scores (decision 005): **detection**
 (played notes found, missed and extra) and **string/fret agreement** (given
 the *reference* notes, how often each assigner picks the player's string and
-fret). `--no-ghost-filter` and `--no-ring-filter` show what each filter
+fret), plus **in tab**: played notes that come out exactly right in the final
+tab. `--no-ghost-filter` and `--no-ring-filter` show what each filter
 contributes. Results are in [Observed on real recordings](#observed-on-real-recordings).
+
+Clips in `samples/holdout/` are skipped by default. They're kept back so the
+final score comes from recordings nothing was tuned on; score them with
+`python scripts/evaluate.py --holdout`.
+
+### Comparing the assigners on fixed phrases
+
+```bash
+python scripts/compare_assigners.py       # metrics for both assigners on each phrase
+python scripts/compare_assigners.py -v    # also print both tabs
+```
+
+Nine phrases in `tab/phrases.py` cover open position, mid-neck, high runs,
+repeated notes, jumps, a pentatonic box, low riffs and a full-neck arpeggio.
+Totals (optimizer / baseline, lower is better):
+
+| Position shifts | Fret travel | Max stretch | String changes |
+|---|---|---|---|
+| 5 / 15 | 97 / 116 | 23 / 27 | 40 / 25 |
+
+The optimizer never shifts more than the baseline on any phrase, and in total
+shifts a third as often, travels less and stretches less. The cost is more
+string changes, which is what staying in one position takes. A test keeps
+these guarantees.
 
 ## Benchmarking
 
@@ -371,10 +396,12 @@ backend/
   tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer
   tab/render.py                  plain-text tablature
   tab/evaluation.py              scoring against reference tabs
+  tab/phrases.py                 fixed test phrases for comparing assigners
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/make_tab.py            command-line audio or MIDI -> tab
   scripts/evaluate.py            score the pipeline on clips with reference tabs
+  scripts/compare_assigners.py   optimizer vs baseline on the fixed phrases
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark
   tests/                         pytest suite (fixtures generated at runtime)
 samples/                         local recordings (audio files are git-ignored)

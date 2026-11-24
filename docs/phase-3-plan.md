@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.7 done (2026-11-21); 3.8 in progress (optimizer retuned 2026-11-22). Each milestone below is
+**Status:** 3.1–3.7 done (2026-11-21); 3.8 in progress (optimizer retuned 2026-11-22; comparison phrases 2026-11-23). Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -188,12 +188,14 @@ run the Phase 2 pipeline first (shared with `transcribe_audio.py` through
 since it takes audio too and detects the input type from the extension.
 
 ### 3.8 Baseline vs optimizer
-- A small set of fixed test phrases (scale runs, a riff with position shifts,
-  repeated notes, a wide-range melody) written as `NoteEvent` lists in the tests.
-- A script prints both assigners' metrics side by side. The results go in the
-  README, and the chosen weights go in a decision-log entry.
-- Acceptance: the optimizer is no worse on every phrase and better on shifts
-  or travel overall.
+- ✅ Nine fixed test phrases in `tab/phrases.py` (open position, mid-neck, high
+  run, repeated notes, jump, pentatonic box, melody at frets 7–10, low riff,
+  full-neck arpeggio).
+- ✅ `scripts/compare_assigners.py` prints both assigners' metrics side by
+  side; results in the README; weights in decision 012.
+- ✅ Acceptance on the metrics, enforced by `tests/test_phrases.py`: the
+  optimizer never makes more position shifts than the baseline on any phrase,
+  and in total makes fewer (5 vs 15) and travels less (97 vs 116 frets).
 - **Also judge against real players, not only our metrics.** `evaluate.py`
   already scores how often each assigner matches the player's string and fret
   on reference tabs, and end to end how many played notes come out exactly
@@ -208,9 +210,10 @@ since it takes audio too and detects the input type from the extension.
     (2 shifts on the high run). No weight setting beat the baseline on both
     scores: the remaining end-to-end gap is transcription errors (`no_chord3`)
     and a fingering neither assigner makes (`no_chord1/2`).
-  - Remaining: the comparison phrases and side-by-side script above, a
-    higher-neck recording (the pentatonic-at-fret-5 case), and reducing how far
-    one misheard note can drag the optimizer.
+  - Remaining: score the new higher-neck recordings, with a few kept back in
+    `samples/holdout/` (skipped by `evaluate.py` unless `--holdout`) so the
+    final comparison uses clips nothing was tuned on; and reduce how far one
+    misheard note can drag the optimizer.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`
   repeat 1 and 5), so further tuning would memorise them. New recordings come
@@ -241,5 +244,6 @@ since it takes audio too and detects the input type from the extension.
   of the 12 ringing notes in the four clips and no real notes. The other 6
   are as loud as the note before them or don't start where it ends; telling
   those apart from real notes may need the audio itself, not just note events.
-- **Octave-below ghosts:** 2 quiet G#2s under G#3 in `no_chord4`. Extending
-  the ghost filter downwards is a small change; measure with `evaluate.py`.
+- **Octave-below ghosts:** done 2026-11-23 (decision 013). The ghost filter
+  now also removes a quiet note an octave *below* a loud one: the 2 G#2s in
+  `no_chord4`, no real notes.
