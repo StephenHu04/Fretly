@@ -1,7 +1,8 @@
 """Filters that remove unreliable notes before string/fret assignment.
 
 - Octave ghosts: Basic Pitch sometimes reports a note's second harmonic as an
-  extra note one octave up, at the same time and about half the velocity.
+  extra note one octave up, at the same time and about half the velocity. On
+  real recordings quiet ghosts an octave *below* a loud note also appear.
 - Ringing open strings: lifting a finger off a fretted note lets the open
   string ring, and the model hears that as a new note (decision 011).
 
@@ -24,6 +25,7 @@ class GhostFilterSettings:
     # Starting values from synthetic audio; retune on real recordings.
     max_onset_gap_s: float = 0.05
     max_velocity_ratio: float = 0.6
+    below: bool = True  # also remove ghosts an octave below (seen on real recordings)
 
     def __post_init__(self) -> None:
         if self.max_onset_gap_s < 0:
@@ -39,8 +41,9 @@ class FilterResult:
 
 
 def _is_ghost_of(candidate: NoteEvent, base: NoteEvent, settings: GhostFilterSettings) -> bool:
+    octave_away = candidate.pitch == base.pitch + OCTAVE or (settings.below and candidate.pitch == base.pitch - OCTAVE)
     return (
-        candidate.pitch == base.pitch + OCTAVE
+        octave_away
         and abs(candidate.start_s - base.start_s) <= settings.max_onset_gap_s
         and candidate.velocity <= settings.max_velocity_ratio * base.velocity
     )
@@ -49,7 +52,7 @@ def _is_ghost_of(candidate: NoteEvent, base: NoteEvent, settings: GhostFilterSet
 def remove_octave_ghosts(
     notes: Iterable[NoteEvent], settings: GhostFilterSettings | None = None
 ) -> FilterResult:
-    """Drop notes that look like the second harmonic of a louder note an octave below.
+    """Drop quiet notes exactly an octave from a louder note starting at the same time.
 
     Every note is compared against the original input, so a ghost can't
     protect another note by being removed first. Removed notes are returned

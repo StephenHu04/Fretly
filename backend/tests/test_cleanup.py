@@ -41,10 +41,18 @@ def test_only_exact_octaves_count(interval: int) -> None:
     assert remove_octave_ghosts(notes).removed == []
 
 
-def test_quiet_note_below_a_loud_one_is_not_a_ghost() -> None:
-    # The ghost is always the upper note.
-    notes = [note(0.0, 40, 30), note(0.0, 52, 100)]
-    assert remove_octave_ghosts(notes).removed == []
+def test_quiet_note_an_octave_below_a_loud_one_is_a_ghost() -> None:
+    # no_chord4: a quiet G#2 under each loud G#3 (G string, fret 1).
+    real, ghost = note(3.566, 56, 90), note(3.566, 44, 47)
+    assert remove_octave_ghosts([real, ghost]).removed == [ghost]
+    assert remove_octave_ghosts([real, ghost], GhostFilterSettings(below=False)).removed == []
+
+
+def test_loud_note_is_never_the_ghost() -> None:
+    # Whichever octave the quiet note is in, only the quiet one goes.
+    for loud, quiet in ((40, 52), (52, 40)):
+        notes = [note(0.0, loud, 100), note(0.0, quiet, 30)]
+        assert remove_octave_ghosts(notes).kept == [notes[0]]
 
 
 def test_stacked_ghosts_are_all_removed() -> None:
