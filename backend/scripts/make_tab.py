@@ -1,7 +1,7 @@
 """Turn a guitar recording or a MIDI file into tablature.
 
 Pipeline: [audio -> validate -> FFmpeg -> Basic Pitch ->] notes ->
-cleanup (octave ghosts, ringing open strings) -> string/fret assignment ->
+cleanup (octave ghosts, ringing open strings, low thumps) -> string/fret assignment ->
 plain-text tab + metrics.
 
 Audio files run the Phase 2 transcription first; .mid/.midi files skip it.
@@ -70,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--no-ghost-filter", action="store_true", help="Keep octave-ghost notes")
     parser.add_argument("--no-ring-filter", action="store_true", help="Keep ringing open-string notes")
+    parser.add_argument("--no-thump-filter", action="store_true", help="Keep quiet low notes under louder ones")
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Wrap tab lines at this width")
     parser.add_argument("--out-dir", default="outputs", help="Where to write audio/MIDI artifacts")
     parser.add_argument("--skip-preprocess", action="store_true", help="Audio only: skip FFmpeg")
@@ -97,7 +98,11 @@ def main(argv: list[str] | None = None) -> int:
 
     fretboard = Fretboard()
     cleanup = clean_notes(
-        notes, fretboard, octave_ghosts=not args.no_ghost_filter, ringing_open_strings=not args.no_ring_filter
+        notes,
+        fretboard,
+        octave_ghosts=not args.no_ghost_filter,
+        ringing_open_strings=not args.no_ring_filter,
+        low_thumps=not args.no_thump_filter,
     )
     detected, notes = len(notes), cleanup.kept
     methods = list(ASSIGNERS) if args.method == "both" else [args.method]

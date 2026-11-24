@@ -69,13 +69,13 @@ def find_audio(reference: Path) -> Path | None:
 
 
 def evaluate_clip(
-    reference: Path, audio: Path, fretboard: Fretboard, out_dir: Path, ghost_filter: bool, ring_filter: bool
+    reference: Path, audio: Path, fretboard: Fretboard, out_dir: Path, filters: dict[str, bool]
 ) -> dict[str, Any]:
     positions = parse_reference(reference.read_text(encoding="utf-8"), fretboard)
     pitches = [fretboard.pitch_at(p) for p in positions]
 
     _, result, _ = transcribe_file(audio, out_dir)
-    cleanup = clean_notes(result.notes, fretboard, octave_ghosts=ghost_filter, ringing_open_strings=ring_filter)
+    cleanup = clean_notes(result.notes, fretboard, **filters)
     detection = score_detection(pitches, cleanup.kept)
 
     # Fret choices are scored on the reference notes, so transcription
@@ -170,12 +170,18 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"Score only the held-out clips in ../samples/{HOLDOUT_DIR}")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
+    parser.add_argument("--no-thump-filter", action="store_true", help="Score without the low-thump filter")
     parser.add_argument("--out-dir", type=Path, default=Path("outputs/evaluate"))
     parser.add_argument("-v", "--verbose", action="store_true", help="List missed and extra notes")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args(argv)
 
     fretboard = Fretboard()
+    filters = {
+        "octave_ghosts": not args.no_ghost_filter,
+        "ringing_open_strings": not args.no_ring_filter,
+        "low_thumps": not args.no_thump_filter,
+    }
     clips = []
     if args.holdout and args.paths:
         parser.error("--holdout can't be combined with paths")
@@ -186,9 +192,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"skipping {reference.name}: no matching audio file", file=sys.stderr)
             continue
         try:
-            clips.append(evaluate_clip(
-                reference, audio, fretboard, args.out_dir, not args.no_ghost_filter, not args.no_ring_filter
-            ))
+            clips.append(evaluate_clip(reference, audio, fretboard, args.out_dir, filters))
         except PipelineError as exc:
             print(f"error [{exc.code}] in {audio.name}: {exc.message}", file=sys.stderr)
             return 1
