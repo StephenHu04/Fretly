@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [six real recordings](#observed-on-real-recordings) (97% of played notes found, 80% of
+  [eight real recordings](#observed-on-real-recordings) (97% of played notes found, 73% of
   detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
@@ -142,12 +142,14 @@ This is a smoke test, not an accuracy measurement.
 
 ### Observed on real recordings
 
-Six single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
+Eight single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
 `samples/audio_clips/`, each checked against a tab of what was actually played
-(`no_chord*.tab.txt`) with `scripts/evaluate.py`. `no_chord2` repeats the
-`no_chord1` phrase and `no_chord6` repeats `no_chord5`. Detected notes are
-matched to played notes in order (longest common subsequence of pitches).
-Measured 2026-11-22 at default settings:
+(`*.tab.txt`) with `scripts/evaluate.py`. `no_chord2` repeats the `no_chord1`
+phrase and `no_chord6` repeats `no_chord5`. `pent5` and `neck1` were recorded
+from two of the fixed comparison phrases (`pentatonic_5` and `melody_7_10`) to
+test playing above the 5th fret. Detected notes are matched to played notes in
+order (longest common subsequence of pitches). Measured 2026-11-23 at default
+settings:
 
 | Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
 |---|---|---|---|---|---|---|
@@ -157,14 +159,16 @@ Measured 2026-11-22 at default settings:
 | no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
 | no_chord5 | 16 | 16 | 0 | 6 | 10 / 9 | 12 / 9 |
 | no_chord6 | 16 | 15 | 1 | 5 | 10 / 9 | 8 / 8 |
-| **Total** | **93** | **90** | **3** | **22** | **79 / 77 (85% / 83%)** | **75 / 74 (81% / 80%)** |
+| pent5 | 8 | 8 | 0 | 12 | 2 / 2 | 2 / 2 |
+| neck1 | 10 | 10 | 0 | 6 | 10 / 5 | 5 / 5 |
+| **Total** | **111** | **108** | **3** | **40** | **91 / 84 (82% / 76%)** | **82 / 81 (74% / 73%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
 tab exactly as played (right note, string and fret).
 
-**Detection: recall 97%, precision 80%.** Nearly every played note is found;
-about one detected note in five is extra. On the first four clips the extras
+**Detection: recall 97%, precision 73%.** Nearly every played note is found;
+about one detected note in four is extra. On the first four clips the extras
 were:
 
 | Cause | Extras | Removed by filters | Example |
@@ -181,6 +185,12 @@ notes and no real ones, a first sign it isn't just fitted to the clips it was
 built on. The new clips' remaining extras are mostly low notes (G2, E2, E3)
 that look like sympathetic resonance of the lower strings.
 
+`pent5` and `neck1` show the same thing more strongly: 13 of their 18 extras
+are G2 (or A2 and F2 nearby), quiet (velocity 40–72) and short (0.14–0.30 s).
+Most start within about 70 ms of a real note, whatever that note is, so
+they look like the guitar body's resonance or pick noise rather than playing.
+`pent5` also picks up handling noise in the second before playing starts.
+
 **String/fret choices.** On the four open-position clips the optimizer and
 the baseline tie, because the lowest fret is already the natural choice there.
 The difference is the phrase in `no_chord5/6`, which sits around frets 2–7 and
@@ -196,8 +206,19 @@ B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|--
 G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-It now beats the baseline on fret choice (79/93 vs 77/93) and is one note
-ahead end to end (75/93 vs 74/93), too small a margin to call. Most of the
+It now beats the baseline on fret choice (91/111 vs 84/111) and is one note
+ahead end to end (82/111 vs 81/111), too small a margin to call.
+
+**Up the neck the picture is mixed.** On `neck1` (frets 7–10) the optimizer
+matched all 10 of the player's positions on the correct notes; the baseline
+matched 5. End to end both get 5/10, because the extra low G2s pull the
+optimizer back to open position. On `pent5` (A minor pentatonic, 5th position)
+both assigners match only 2/8 even on the correct notes. The optimizer plays it
+in open position and shifts to frets 5–8 for the last two notes. Under the cost
+model that's cheaper (15.1) than the player's no-shift 5th-position box (21.0),
+so the cost model, not the search, is what disagrees with the player. With one
+clip showing it, the weights haven't been retuned yet.
+ Most of the
 remaining end-to-end errors aren't fret-choice problems. In `no_chord3` the model hears E5 instead of E4, and the
 optimizer follows that wrong note up the neck while the baseline ignores it.
 In `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
@@ -208,8 +229,10 @@ string because an extra E5 needs fret 12. On the correct notes it matched all
 12 of the player's positions. Scoring fret choices on reference notes as well
 as model output keeps the two kinds of error apart (spec principle 4).
 
-Six short phrases from one player aren't an accuracy benchmark; Phase 6 adds a
-proper evaluation set.
+Eight short phrases from one player aren't an accuracy benchmark; Phase 6 adds
+a proper evaluation set. Three more clips are kept back in `samples/holdout/`
+as a blind test: Fretly's tabs for them were committed in
+`samples/holdout/PREDICTIONS.md` before the answers were seen.
 
 ### Known limitations
 
