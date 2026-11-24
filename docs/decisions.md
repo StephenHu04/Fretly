@@ -311,3 +311,32 @@ notes lost; precision 79% → 80%; the optimizer's end-to-end score went from
 74/93 to 75/93 because the fake low notes had pulled one position off. A real
 quiet bass note played an octave under a louder melody note would be removed
 too; that's rare in single-note playing and revisited with chords (3.9).
+
+---
+
+## 014 — Remove quiet low "thump" notes under a louder note
+
+**Date:** 2026-11-23 · **Status:** Accepted
+
+**Context.** On the phone recordings, especially `pent5`, `neck1`, `no_chord5`
+and `no_chord6`, the model reports low notes nobody played, mostly G2: quiet
+(velocity 40–72), short (0.14–0.30 s) and starting with or during a real note,
+whatever that note's pitch. They look like the guitar body's resonance or the
+pick's attack, and they were the largest group of the 40 extra notes on the
+eight reference clips. End to end they pulled the optimizer back to open position: on
+`neck1` it matched the player on 10/10 notes given the correct notes but only
+5/10 from the model's output.
+
+**Decision.** `tab.cleanup.remove_low_thumps` drops a note when there's a
+louder note at least 12 semitones higher that is sounding when it starts (or
+starts up to 80 ms after it), the low note lasts at most 0.35 s, and it is at
+most 0.8 times as loud. It runs after the octave-ghost and ringing filters;
+`--no-thump-filter` turns it off.
+
+**Consequences.** On the eight clips: 17 notes removed, no real notes lost
+(recall stays 97%), precision 73% → 82%. Optimizer end to end 82 → 86/111
+(`neck1` 5 → 10, `no_chord6` 8 → 9, `no_chord5` 12 → 10; the extras had
+happened to help there), baseline unchanged at 81. Thresholds were fitted on
+these clips, so the blind clips in `samples/holdout/` are the real check. The
+rule assumes single-note playing: a quiet bass note under a louder melody note
+is real in chord playing, so milestone 3.9 has to disable or narrow it.

@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [eight real recordings](#observed-on-real-recordings) (97% of played notes found, 73% of
+  [eight real recordings](#observed-on-real-recordings) (97% of played notes found, 82% of
   detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
@@ -157,18 +157,18 @@ settings:
 | no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 | 11 / 11 |
 | no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 | 9 / 11 |
 | no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
-| no_chord5 | 16 | 16 | 0 | 6 | 10 / 9 | 12 / 9 |
-| no_chord6 | 16 | 15 | 1 | 5 | 10 / 9 | 8 / 8 |
-| pent5 | 8 | 8 | 0 | 12 | 2 / 2 | 2 / 2 |
-| neck1 | 10 | 10 | 0 | 6 | 10 / 5 | 5 / 5 |
-| **Total** | **111** | **108** | **3** | **40** | **91 / 84 (82% / 76%)** | **82 / 81 (74% / 73%)** |
+| no_chord5 | 16 | 16 | 0 | 2 | 10 / 9 | 10 / 9 |
+| no_chord6 | 16 | 15 | 1 | 2 | 10 / 9 | 9 / 8 |
+| pent5 | 8 | 8 | 0 | 6 | 2 / 2 | 2 / 2 |
+| neck1 | 10 | 10 | 0 | 2 | 10 / 5 | 10 / 5 |
+| **Total** | **111** | **108** | **3** | **23** | **91 / 84 (82% / 76%)** | **86 / 81 (77% / 73%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
 tab exactly as played (right note, string and fret).
 
-**Detection: recall 97%, precision 73%.** Nearly every played note is found;
-about one detected note in four is extra. On the first four clips the extras
+**Detection: recall 97%, precision 82%.** Nearly every played note is found;
+about one detected note in six is extra. On the first four clips the extras
 were:
 
 | Cause | Extras | Removed by filters | Example |
@@ -191,6 +191,12 @@ Most start within about 70 ms of a real note, whatever that note is, so
 they look like the guitar body's resonance or pick noise rather than playing.
 `pent5` also picks up handling noise in the second before playing starts.
 
+The low-thump filter (decision 014) removes a short (≤ 0.35 s), quiet (≤ 0.8×)
+note an octave or more below a louder note that's sounding when it starts (or
+starts up to 80 ms later). On the eight clips it removed 17 notes and no real
+ones, taking precision from 73% to 82%. In single-note playing nothing sounds
+under a note, so the rule is safe there; it will need to be off for chords.
+
 **String/fret choices.** On the four open-position clips the optimizer and
 the baseline tie, because the lowest fret is already the natural choice there.
 The difference is the phrase in `no_chord5/6`, which sits around frets 2–7 and
@@ -206,22 +212,24 @@ B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|--
 G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-It now beats the baseline on fret choice (91/111 vs 84/111) and is one note
-ahead end to end (82/111 vs 81/111), too small a margin to call.
+It now beats the baseline on fret choice (91/111 vs 84/111) and end to end
+(86/111 vs 81/111). Most of the remaining end-to-end errors aren't fret-choice
+problems. In `no_chord3` the model hears E5 instead of E4, and the optimizer
+follows that wrong note up the neck while the baseline ignores it. In
+`no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
 
 **Up the neck the picture is mixed.** On `neck1` (frets 7–10) the optimizer
-matched all 10 of the player's positions on the correct notes; the baseline
-matched 5. End to end both get 5/10, because the extra low G2s pull the
-optimizer back to open position. On `pent5` (A minor pentatonic, 5th position)
+matched all 10 of the player's positions, both on the correct notes and end to
+end; the baseline matched 5. Before the low-thump filter the end-to-end score
+was 5/10, because the extra G2s pulled the optimizer back to open position.
+(On `no_chord5` the filter lowered the end-to-end score from 12 to 10: the
+extras had happened to nudge two notes onto the player's strings. 10 is also
+what the optimizer gets on the correct notes.) On `pent5` (A minor pentatonic, 5th position)
 both assigners match only 2/8 even on the correct notes. The optimizer plays it
 in open position and shifts to frets 5–8 for the last two notes. Under the cost
 model that's cheaper (15.1) than the player's no-shift 5th-position box (21.0),
 so the cost model, not the search, is what disagrees with the player. With one
 clip showing it, the weights haven't been retuned yet.
- Most of the
-remaining end-to-end errors aren't fret-choice problems. In `no_chord3` the model hears E5 instead of E4, and the
-optimizer follows that wrong note up the neck while the baseline ignores it.
-In `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
 
 **Transcription errors, not the optimizer, cause some odd fingerings.** On the
 model's output for `no_chord3`, the optimizer played C#4 at fret 11 on the D
@@ -236,7 +244,7 @@ as a blind test: Fretly's tabs for them were committed in
 
 ### Known limitations
 
-Apart from the octave ghosts and ringing open strings above, these come
+Apart from the octave ghosts, ringing open strings and low thumps above, these come
 from Basic Pitch's documented behaviour and haven't been measured on real
 guitar yet. Phase 6 adds measurements.
 
@@ -263,9 +271,10 @@ python scripts/make_tab.py clip.m4a --json                            # machine-
 ```
 
 Audio goes through transcription first (as in the previous section); MIDI
-files skip it. Then two cleanup filters remove notes nobody played: octave
-ghosts (`--no-ghost-filter` keeps them) and open strings ringing after a
-finger lifts (`--no-ring-filter`). Each remaining note gets a string and fret,
+files skip it. Then three cleanup filters remove notes nobody played: octave
+ghosts (`--no-ghost-filter` keeps them), open strings ringing after a
+finger lifts (`--no-ring-filter`) and quiet low thumps under a louder note
+(`--no-thump-filter`). Each remaining note gets a string and fret,
 and the result prints as tab with playability metrics:
 
 ```text
@@ -305,8 +314,8 @@ cleanup filters and reports two separate scores (decision 005): **detection**
 (played notes found, missed and extra) and **string/fret agreement** (given
 the *reference* notes, how often each assigner picks the player's string and
 fret), plus **in tab**: played notes that come out exactly right in the final
-tab. `--no-ghost-filter` and `--no-ring-filter` show what each filter
-contributes. Results are in [Observed on real recordings](#observed-on-real-recordings).
+tab. `--no-ghost-filter`, `--no-ring-filter` and `--no-thump-filter` show
+what each filter contributes. Results are in [Observed on real recordings](#observed-on-real-recordings).
 
 Clips in `samples/holdout/` are skipped by default. They're kept back so the
 final score comes from recordings nothing was tuned on; score them with
@@ -413,7 +422,7 @@ backend/
   pipeline/midi_parser.py        MIDI / model output -> NoteEvent
   pipeline/run.py                validate -> preprocess -> transcribe in one call
   tab/fretboard.py               tuning, positions, candidate string/fret positions
-  tab/cleanup.py                 cleanup filters: octave ghosts, ringing open strings
+  tab/cleanup.py                 cleanup filters: octave ghosts, ringing open strings, low thumps
   tab/assign.py                  assignment types and the lowest-fret baseline
   tab/metrics.py                 playability metrics (shifts, stretch, travel)
   tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer

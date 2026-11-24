@@ -6,7 +6,7 @@ own package, tests and metrics. The checklist and acceptance criteria are in
 [PROJECT_SPEC.md](../PROJECT_SPEC.md#phase-3--custom-tablature-optimizer-weeks-23);
 this document is the order of work and the design behind it.
 
-**Status:** 3.1–3.7 done (2026-11-21); 3.8 in progress (optimizer retuned 2026-11-22; comparison phrases 2026-11-23). Each milestone below is
+**Status:** 3.1–3.7 done (2026-11-21); 3.8 in progress (optimizer retuned 2026-11-22; comparison phrases and low-thump filter 2026-11-23). Each milestone below is
 roughly one commit, and each leaves the test suite green.
 
 ## Scope
@@ -215,10 +215,13 @@ since it takes audio too and detects the input type from the extension.
     (baseline 5/10), but both assigners play `pent5` in open position (2/8).
     Three blind clips are in `samples/holdout/`, with predictions committed
     before the answers.
-  - Remaining: remove the quiet low "body thump" notes (mostly G2) that drag
-    the optimizer back to open position end to end; decide whether the cost
-    model should prefer staying in one box (`pent5`) once more clips show it;
-    score the blind clips when their answers arrive.
+  - 2026-11-23: low-thump filter (decision 014) removes the quiet low notes
+    (mostly G2) under louder ones: 17 removed, no real notes lost, precision
+    73% → 82%. `neck1` end to end went from 5/10 to 10/10; in total the
+    optimizer now leads 86/111 to 81/111 end to end.
+  - Remaining: decide whether the cost model should prefer staying in one box
+    (`pent5`) once more clips show it; score the blind clips when their
+    answers arrive.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`
   repeat 1 and 5), so further tuning would memorise them. New recordings come
@@ -252,3 +255,5 @@ since it takes audio too and detects the input type from the extension.
 - **Octave-below ghosts:** done 2026-11-23 (decision 013). The ghost filter
   now also removes a quiet note an octave *below* a loud one: the 2 G#2s in
   `no_chord4`, no real notes.
+- **Low thumps:** done 2026-11-23 (decision 014). Assumes single notes; 3.9
+  must switch it off (or limit it) when chords are expected.
