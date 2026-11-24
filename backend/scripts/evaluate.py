@@ -9,9 +9,13 @@ runs transcription and cleanup, and reports:
 - in tab: end to end, played notes that appear in the final tab exactly as
   played (right note, right string and fret).
 
+Clips in a ``holdout`` folder are skipped when searching, so they can be kept
+for a final check that nothing was tuned on. Score them with ``--holdout``.
+
 Usage:
-    python scripts/evaluate.py                       # every reference under ../samples
+    python scripts/evaluate.py                       # every reference under ../samples, except holdout/
     python scripts/evaluate.py ../samples/audio_clips/no_chord3.tab.txt -v
+    python scripts/evaluate.py --holdout             # only ../samples/holdout
     python scripts/evaluate.py --json
 """
 
@@ -34,13 +38,22 @@ from tab.fretboard import Fretboard
 from tab.optimizer import assign_optimized
 
 REFERENCE_SUFFIX = ".tab.txt"
+HOLDOUT_DIR = "holdout"
 
 
 def find_references(paths: list[Path]) -> list[Path]:
+    """Reference tabs in ``paths``; folder searches skip ``holdout`` folders below them.
+
+    A holdout folder passed directly (or a file inside one) is still used.
+    """
     found: list[Path] = []
     for path in paths:
         if path.is_dir():
-            found.extend(sorted(path.rglob(f"*{REFERENCE_SUFFIX}")))
+            found.extend(
+                ref
+                for ref in sorted(path.rglob(f"*{REFERENCE_SUFFIX}"))
+                if HOLDOUT_DIR not in ref.relative_to(path).parts[:-1]
+            )
         else:
             found.append(path)
     return found
@@ -151,8 +164,10 @@ def format_report(clips: list[dict[str, Any]], verbose: bool) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("paths", nargs="*", type=Path, default=[Path("../samples")],
+    parser.add_argument("paths", nargs="*", type=Path,
                         help="Reference .tab.txt files or folders to search (default: ../samples)")
+    parser.add_argument("--holdout", action="store_true",
+                        help=f"Score only the held-out clips in ../samples/{HOLDOUT_DIR}")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
     parser.add_argument("--out-dir", type=Path, default=Path("outputs/evaluate"))
@@ -162,7 +177,10 @@ def main(argv: list[str] | None = None) -> int:
 
     fretboard = Fretboard()
     clips = []
-    for reference in find_references(args.paths):
+    if args.holdout and args.paths:
+        parser.error("--holdout can't be combined with paths")
+    paths = args.paths or [Path("../samples") / HOLDOUT_DIR if args.holdout else Path("../samples")]
+    for reference in find_references(paths):
         audio = find_audio(reference)
         if audio is None:
             print(f"skipping {reference.name}: no matching audio file", file=sys.stderr)

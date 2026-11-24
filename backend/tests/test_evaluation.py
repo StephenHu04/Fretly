@@ -7,7 +7,7 @@ import pytest
 
 from pipeline import transcribe as transcribe_module
 from pipeline.midi_parser import NoteEvent
-from scripts.evaluate import find_audio, main
+from scripts.evaluate import find_audio, find_references, main
 from tab.assign import Assignment, TabNote
 from tab.evaluation import exact_in_tab, match_pitches, parse_reference, position_agreement, score_detection
 from tab.fretboard import Fretboard, Position
@@ -86,6 +86,20 @@ def test_position_agreement() -> None:
     assert position_agreement(ref, [Position(1, 0), Position(1, 0)]) == 1
     with pytest.raises(ValueError):
         position_agreement(ref, [Position(1, 0)])
+
+
+def test_holdout_folders_are_skipped_unless_asked_for(tmp_path: Path) -> None:
+    for rel in ("clips/a.tab.txt", "holdout/b.tab.txt", "clips/holdout/c.tab.txt"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(REFERENCE)
+    assert [p.name for p in find_references([tmp_path])] == ["a.tab.txt"]
+    assert [p.name for p in find_references([tmp_path / "holdout"])] == ["b.tab.txt"]
+    assert [p.name for p in find_references([tmp_path / "holdout" / "b.tab.txt"])] == ["b.tab.txt"]
+
+
+def test_holdout_flag_cannot_take_paths(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        main(["--holdout", str(tmp_path)])
 
 
 def test_find_audio_matches_the_reference_name(tmp_path: Path) -> None:
