@@ -101,7 +101,8 @@ def test_errors_exit_with_code_1(tmp_path: Path, capsys: pytest.CaptureFixture[s
 
 
 @pytest.mark.parametrize(
-    "script", ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py", "evaluate.py"]
+    "script",
+    ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py", "evaluate.py", "compare_assigners.py"],
 )
 def test_scripts_run_as_commands(script: str) -> None:
     # Run the way a user does, so import problems that pytest's path setup
