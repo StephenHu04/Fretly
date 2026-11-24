@@ -1,0 +1,20 @@
+# Reference tab for pos4_riff.m4a (what was actually played)
+# Held-out clip, recorded as New Recording 19 (blind3). Phone (M4A/AAC), standard tuning.
+# G and D strings, frets 4-7. Single notes only.
+
+e|-----------------|
+B|-----------------|
+G|-4---4-6-4-------|
+D|---6-------7-6-4-|
+A|-----------------|
+E|-----------------|
+
+# The same 8 notes in order: string, fret, pitch (MIDI)
+# 1  G 4  B3  59
+# 2  D 6  G#3 56
+# 3  G 4  B3  59
+# 4  G 6  C#4 61
+# 5  G 4  B3  59
+# 6  D 7  A3  57
+# 7  D 6  G#3 56
+# 8  D 4  F#3 54

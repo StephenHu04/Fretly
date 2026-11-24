@@ -50,3 +50,14 @@ D|-0-------0-------4-|
 A|-------------------|
 E|-------------------|
 ```
+
+## After the answers (added 2026-11-23)
+
+The predictions above are unchanged. Once the answers arrived, the clips were
+renamed to describe what's played, and each has a reference tab next to it:
+
+| Above | Recording | Now |
+|---|---|---|
+| blind1 | New Recording 17 | `low_walk` |
+| blind2 | New Recording 18 | `cross_descent` |
+| blind3 | New Recording 19 | `pos4_riff` |
