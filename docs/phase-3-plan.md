@@ -233,6 +233,7 @@ since it takes audio too and detects the input type from the extension.
   - 2026-11-24: weights tuned on GuitarSet (decision 018). Held-out players
     39.8% -> 52.4% (baseline 27.8%); own clips end to end 92 -> 93/111, with
     `no_chord3` worse. Travel is no longer part of the acceptance test.
+  - 2026-11-24: pins, start fret and playing styles (decision 019).
   - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
     blind clips, since the current ones have been used.
 

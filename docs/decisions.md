@@ -502,3 +502,39 @@ and open-position playing want different weights. That may become a setting.
   spec asks for "measurably better on the defined metrics", which is now true of
   shifts and stretch but not of travel or string changes.
 - Players 04 and 05 are used up as a held-out set.
+
+---
+
+## 019 — Let the user hint: pinned notes, start fret and playing style
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+**Context.** 72% of the misses on GuitarSet's tuning players are in runs of 5
+or more notes, mostly one string away: a consistent position, but not the
+player's. Notes alone can't always say which.
+
+**Decision.**
+
+- `assign_optimized` takes `pins` (note to position) and `start_fret`. Pinned
+  notes have one candidate and the search stays exact around them. A pin that
+  can't sound its note is an error, not ignored.
+- `STYLES`: `open` (the weights before 018), `balanced` (the default), `lead`.
+  `lead` is the best of the 522 settings already searched for 018 that don't
+  use the discarded flat open-string cost and pass the fixed-phrase check; our
+  clips weren't a guardrail. Picking its best by leave-one-player-out gives
+  54, 49, 63 and 64% on players 00-03.
+
+**Results** (agreement with the player's string and fret; "first note given"
+scores the remaining notes):
+
+| Style | GuitarSet 04-05 | ...first note given | GuitarSet 00-03 (tuned on) | Our 8 clips, in tab | Holdout clips, in tab |
+|---|---|---|---|---|---|
+| `open` | 39.8% | 46.4% | 34.8% | 92/111 | 10/17 |
+| `balanced` | 52.4% | 59.7% | 52.0% | 93/111 | 10/17 |
+| `lead` | 68.3% | 70.5% | 61.6% | 64/111 | 16/17 |
+
+**Caveats.** Players 04 and 05 had been scored once for 018; this is a second
+look, though no weight here was chosen using them. The style has to be chosen
+by the user: `lead` ruins open-position clips (`no_chord4` 25 to 3) and `open`
+is worst up the neck. Picking the best style per clip afterwards would not be a
+fair score, so it isn't reported.

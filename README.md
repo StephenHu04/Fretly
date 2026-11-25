@@ -259,8 +259,9 @@ saying what they were; Fretly's tabs for them were committed in
 `samples/holdout/PREDICTIONS.md` before the answers were seen. Two answers were
 then changed by the player **after being shown what Fretly heard**
 (`cross_descent`'s order and last note; `low_walk` moved up two frets), so
-their detection scores aren't independent evidence, and `low_walk` is still
-uncertain. Against the answers as first given, in tab (optimizer / baseline)
+their detection scores aren't independent evidence. `low_walk` was deleted on
+2026-11-24 because its tab couldn't be trusted; it had scored 1 / 1 of 7.
+Against the answers as first given, in tab (optimizer / baseline)
 was 3 / 3 of 24 for the committed predictions and 7 / 3 with the low-thump
 filter. Against the changed answers, with the current code
 (`python scripts/evaluate.py --holdout`):
@@ -268,16 +269,15 @@ filter. Against the changed answers, with the current code
 | Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
 |---|---|---|---|---|---|---|
 | cross_descent | 9 | 9 | 0 | 0 | 9 / 2 | 9 / 2 |
-| low_walk | 7 | 5 | 2 | 6 | 1 / 1 | 1 / 1 |
 | pos4_riff | 8 | 8 | 0 | 2 | 1 / 1 | 1 / 1 |
-| **Total** | **24** | **22** | **2** | **8** | **11 / 4** | **11 / 4** |
+| **Total** | **17** | **17** | **0** | **2** | **10 / 3** | **10 / 3** |
 
 `cross_descent` (frets 7–9 across all six strings) is perfect end to end; the
 committed prediction wasn't, because it predates the low-thump filter.
-`pos4_riff` and `low_walk` are played in a box at frets 4–9 on the middle and
-low strings, but each has an open-position fingering inside frets 0–4 with no
-shift, which the optimizer prefers. That fingering is easy too; the player's
-choice probably comes from tone or habit, which the notes alone don't show.
+`pos4_riff` is played in a box at frets 4–7, but it has an open-position
+fingering inside frets 0–4 with no shift, which the optimizer prefers by
+default. That fingering is easy too; the player's choice probably comes from
+tone or habit, which the notes alone don't show.
 These clips helped find decision 015, so they're no longer blind.
 
 ### Fret choice on GuitarSet
@@ -303,6 +303,16 @@ and 05 (decision 018), so the held-out row is the one to trust: 52.4%, against
 27.8% for the baseline. The same notes can be fingered several ways, so 100%
 isn't reachable. The optimizer still sits lower on the neck than the players
 (average fret 5.4 vs 7.1) and uses more open strings (10% vs 1%).
+
+With a playing style, and with the first note of each passage given
+(decision 019). The same weights can't serve open-position and up-the-neck
+playing, so the style is the user's choice:
+
+| Style | GuitarSet 04-05 | ...first note given | GuitarSet 00-03 (tuned on) | Our 8 clips, in tab | Holdout clips, in tab |
+|---|---|---|---|---|---|
+| `open` | 39.8% | 46.4% | 34.8% | 92/111 | 10/17 |
+| `balanced` | 52.4% | 59.7% | 52.0% | 93/111 | 10/17 |
+| `lead` | 68.3% | 70.5% | 61.6% | 64/111 | 16/17 |
 
 To run it, download `annotation.zip` (39 MB) from
 [Zenodo](https://zenodo.org/records/3371780) into `data/guitarset/`
@@ -345,7 +355,13 @@ python scripts/make_tab.py ../samples/audio_clips/no_chord1.m4a       # audio ->
 python scripts/make_tab.py clip.mid                                   # MIDI -> tab
 python scripts/make_tab.py clip.m4a --method both                     # optimizer vs baseline
 python scripts/make_tab.py clip.m4a --json                            # machine-readable
+python scripts/make_tab.py clip.m4a --style lead                      # open, balanced (default) or lead
+python scripts/make_tab.py clip.m4a --list-notes                      # number the notes
+python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5         # hints; the rest is solved around them
 ```
+
+`--pin 3:G5` puts note 3 on the G string at fret 5 (`e` is the high E string,
+`E` the low one). `--pin` can be repeated.
 
 Audio goes through transcription first (as in the previous section); MIDI
 files skip it. Then three cleanup filters remove notes nobody played: octave
