@@ -340,3 +340,72 @@ happened to help there), baseline unchanged at 81. Thresholds were fitted on
 these clips, so the blind clips in `samples/holdout/` are the real check. The
 rule assumes single-note playing: a quiet bass note under a louder melody note
 is real in chord playing, so milestone 3.9 has to disable or narrow it.
+
+---
+
+## 015 — Charge for moving the hand, not the fingers
+
+**Date:** 2026-11-23 · **Status:** Accepted
+
+**Context.** The optimizer charged `move_weight` (1.0) for every fret between
+consecutive fretted notes. Inside a box the hand doesn't move, only the
+fingers, so a 5th-position pentatonic (5→7→5→7→5→8→5→8) looked like 14 frets
+of movement. Open position plus one shift up to frets 5–8 for the last two
+notes cost less (15.1 vs 21.0), so on `pent5` the optimizer matched the player
+on only 2/8 notes even given the correct notes.
+
+**Decision.** Split the movement cost in two:
+
+- inside the hand's 4-fret window: `finger_weight` (0.25) per fret the fingers
+  move;
+- leaving it (a position shift): `shift_weight` (5.0) plus `move_weight` (1.0)
+  per fret the window has to move for the new note to fit.
+
+The window and shift rule are unchanged, so the optimizer still targets the
+same shift metric. 0.25 was picked as "clearly cheaper than moving the hand"
+rather than fitted; it's still enough to prefer short finger moves.
+
+**Consequences.** `pent5` on the correct notes 2/8 → 7/8 (the first note goes
+to the open G, because the hand has no position yet). Everything else on the
+eight main and three holdout clips is unchanged, as are all existing tests.
+Fixed phrases: shifts 5 → 4 (baseline 15). The fret-travel metric rose 97 → 113
+(baseline 116) because it counts finger moves, which the optimizer no longer
+avoids at the expense of the hand. `pos4_riff` and `low_walk` aren't fixed:
+both have an equally easy open-position fingering with no shift, so moving
+cost can't tell them apart from the player's box.
+
+---
+
+## 016 — Shifts get cheaper with the rest before them
+
+**Date:** 2026-11-24 · **Status:** Accepted, to be confirmed on new clips
+
+**Context.** A position shift cost the same mid-run or after a pause. On
+`pent5`, noise before playing starts put the hand at frets 1–3 and it stayed
+there, although 0.93 s of silence follows.
+
+**Decision.** The whole shift cost (`shift_weight` plus distance) is scaled by
+the silence since every earlier note ended: full up to 0.25 s, free from 1 s,
+linear between. Silence rather than time between onsets, because a finger
+can't leave a note that's still sounding. The search stays exact.
+
+**Consequences.** `pent5` end to end 2/8 → 8/8; optimizer total 86 → 92/111
+(baseline 81). Holdout clips, fret choice on reference notes and the fixed
+phrases are unchanged (the last two have no rests, so they can't test this).
+
+**How the values were chosen.** The first guess was free from 0.75 s; it cost
+`neck1` two notes (10 → 8), so 1 s was picked after seeing the scores. End to
+end in-tab counts by (full, free) seconds:
+
+| Setting | neck1 | no_chord5 | no_chord6 | pent5 |
+|---|---|---|---|---|
+| off | 10 | 10 | 9 | 2 |
+| 0.1, 0.5 | 8 | 14 | 13 | 2 |
+| 0.25, 0.5 | 8 | 10 | 13 | 2 |
+| 0.25, 0.75 | 8 | 10 | 9 | 8 |
+| **0.25, 1.0** | 10 | 10 | 9 | 8 |
+| 0.5, 1.0 | 10 | 10 | 9 | 8 |
+| 0.5, 1.5 | 10 | 10 | 9 | 2 |
+
+The gain rests on one clip and one 0.93 s gap, and (0.1, 0.5) totals the same
+92 through different clips. So this is a plausible rule, not a fitted value.

@@ -195,7 +195,7 @@ since it takes audio too and detects the input type from the extension.
   side; results in the README; weights in decision 012.
 - ✅ Acceptance on the metrics, enforced by `tests/test_phrases.py`: the
   optimizer never makes more position shifts than the baseline on any phrase,
-  and in total makes fewer (5 vs 15) and travels less (97 vs 116 frets).
+  and in total makes fewer (4 vs 15).
 - **Also judge against real players, not only our metrics.** `evaluate.py`
   already scores how often each assigner matches the player's string and fret
   on reference tabs, and end to end how many played notes come out exactly
@@ -219,9 +219,16 @@ since it takes audio too and detects the input type from the extension.
     (mostly G2) under louder ones: 17 removed, no real notes lost, precision
     73% → 82%. `neck1` end to end went from 5/10 to 10/10; in total the
     optimizer now leads 86/111 to 81/111 end to end.
-  - Remaining: decide whether the cost model should prefer staying in one box
-    (`pent5`) once more clips show it; score the blind clips when their
-    answers arrive.
+  - 2026-11-23: blind clips scored (README). `cross_descent` 9/9 end to end
+    (baseline 2/9) after the player corrected its tab; `pos4_riff` and `low_walk` 1/8 and 1/7 for both, played
+    in a box where an equally easy open-position fingering exists.
+  - 2026-11-23: hand vs finger movement (decision 015). Only moving the
+    hand's window costs per fret; finger moves inside it cost 0.25 per fret.
+    `pent5` on the correct notes 2/8 → 7/8; nothing else changed.
+  - 2026-11-24: shifts get cheaper with the rest before them (decision 016).
+    `pent5` end to end 2/8 → 8/8; total 92/111 vs 81/111.
+  - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
+    blind clips, since the current ones have been used.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`
   repeat 1 and 5), so further tuning would memorise them. New recordings come

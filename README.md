@@ -159,9 +159,9 @@ settings:
 | no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
 | no_chord5 | 16 | 16 | 0 | 2 | 10 / 9 | 10 / 9 |
 | no_chord6 | 16 | 15 | 1 | 2 | 10 / 9 | 9 / 8 |
-| pent5 | 8 | 8 | 0 | 6 | 2 / 2 | 2 / 2 |
+| pent5 | 8 | 8 | 0 | 6 | 7 / 2 | 8 / 2 |
 | neck1 | 10 | 10 | 0 | 2 | 10 / 5 | 10 / 5 |
-| **Total** | **111** | **108** | **3** | **23** | **91 / 84 (82% / 76%)** | **86 / 81 (77% / 73%)** |
+| **Total** | **111** | **108** | **3** | **23** | **96 / 84 (86% / 76%)** | **92 / 81 (83% / 73%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
@@ -212,8 +212,8 @@ B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|--
 G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-It now beats the baseline on fret choice (91/111 vs 84/111) and end to end
-(86/111 vs 81/111). Most of the remaining end-to-end errors aren't fret-choice
+It now beats the baseline on fret choice (96/111 vs 84/111) and end to end
+(92/111 vs 81/111). Most of the remaining end-to-end errors aren't fret-choice
 problems. In `no_chord3` the model hears E5 instead of E4, and the optimizer
 follows that wrong note up the neck while the baseline ignores it. In
 `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
@@ -224,12 +224,24 @@ end; the baseline matched 5. Before the low-thump filter the end-to-end score
 was 5/10, because the extra G2s pulled the optimizer back to open position.
 (On `no_chord5` the filter lowered the end-to-end score from 12 to 10: the
 extras had happened to nudge two notes onto the player's strings. 10 is also
-what the optimizer gets on the correct notes.) On `pent5` (A minor pentatonic, 5th position)
-both assigners match only 2/8 even on the correct notes. The optimizer plays it
-in open position and shifts to frets 5–8 for the last two notes. Under the cost
-model that's cheaper (15.1) than the player's no-shift 5th-position box (21.0),
-so the cost model, not the search, is what disagrees with the player. With one
-clip showing it, the weights haven't been retuned yet.
+what the optimizer gets on the correct notes.)
+
+**Box shapes (decision 015).** On `pent5` (A minor pentatonic, 5th position)
+the optimizer used to match only 2/8 of the player's positions even on the
+correct notes. It played the phrase in open position and shifted to frets 5–8
+for the last two notes, because every fret the *fingers* moved was charged as
+if the *hand* had moved: inside a box that made 5→7→5→8 look like a lot of
+movement. Now only moving the hand's 4-fret window costs (per fret it moves,
+plus the shift penalty); finger moves inside the window cost a quarter as much.
+`pent5` on the correct notes went from 2/8 to 7/8 (the first G3 still goes to
+the open G string, since before the first fretted note the hand isn't anywhere
+yet). Nothing else changed on the eight clips.
+
+**Shifts during rests (decision 016).** End to end `pent5` was still 2/8,
+because noise before playing starts put the hand in open position. A shift now
+gets cheaper with the silence before it: full price up to 0.25 s, free from
+1 s. `pent5` is now 8/8 end to end, and no other clip changed. The result
+depends on that 1 s value (see decision 016), so it needs new clips to confirm.
 
 **Transcription errors, not the optimizer, cause some odd fingerings.** On the
 model's output for `no_chord3`, the optimizer played C#4 at fret 11 on the D
@@ -238,9 +250,33 @@ string because an extra E5 needs fret 12. On the correct notes it matched all
 as model output keeps the two kinds of error apart (spec principle 4).
 
 Eight short phrases from one player aren't an accuracy benchmark; Phase 6 adds
-a proper evaluation set. Three more clips are kept back in `samples/holdout/`
-as a blind test: Fretly's tabs for them were committed in
-`samples/holdout/PREDICTIONS.md` before the answers were seen.
+a proper evaluation set.
+
+**Blind test.** Three more clips in `samples/holdout/` were recorded without
+saying what they were; Fretly's tabs for them were committed in
+`samples/holdout/PREDICTIONS.md` before the answers were seen. Two answers were
+then changed by the player **after being shown what Fretly heard**
+(`cross_descent`'s order and last note; `low_walk` moved up two frets), so
+their detection scores aren't independent evidence, and `low_walk` is still
+uncertain. Against the answers as first given, in tab (optimizer / baseline)
+was 3 / 3 of 24 for the committed predictions and 7 / 3 with the low-thump
+filter. Against the changed answers, with the current code
+(`python scripts/evaluate.py --holdout`):
+
+| Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
+|---|---|---|---|---|---|---|
+| cross_descent | 9 | 9 | 0 | 0 | 9 / 2 | 9 / 2 |
+| low_walk | 7 | 5 | 2 | 6 | 1 / 1 | 1 / 1 |
+| pos4_riff | 8 | 8 | 0 | 2 | 1 / 1 | 1 / 1 |
+| **Total** | **24** | **22** | **2** | **8** | **11 / 4** | **11 / 4** |
+
+`cross_descent` (frets 7–9 across all six strings) is perfect end to end; the
+committed prediction wasn't, because it predates the low-thump filter.
+`pos4_riff` and `low_walk` are played in a box at frets 4–9 on the middle and
+low strings, but each has an open-position fingering inside frets 0–4 with no
+shift, which the optimizer prefers. That fingering is easy too; the player's
+choice probably comes from tone or habit, which the notes alone don't show.
+These clips helped find decision 015, so they're no longer blind.
 
 ### Known limitations
 
@@ -334,12 +370,13 @@ Totals (optimizer / baseline, lower is better):
 
 | Position shifts | Fret travel | Max stretch | String changes |
 |---|---|---|---|
-| 5 / 15 | 97 / 116 | 23 / 27 | 40 / 25 |
+| 4 / 15 | 113 / 116 | 27 / 27 | 40 / 25 |
 
 The optimizer never shifts more than the baseline on any phrase, and in total
-shifts a third as often, travels less and stretches less. The cost is more
-string changes, which is what staying in one position takes. A test keeps
-these guarantees.
+shifts about a quarter as often. The cost is more string changes, which is
+what staying in one position takes. Fret travel counts finger moves inside a
+box too, so since decision 015 (which stopped charging those as hand movement)
+it's only slightly lower than the baseline's. A test keeps these guarantees.
 
 ## Benchmarking
 
