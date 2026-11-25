@@ -148,20 +148,20 @@ Eight single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
 phrase and `no_chord6` repeats `no_chord5`. `pent5` and `neck1` were recorded
 from two of the fixed comparison phrases (`pentatonic_5` and `melody_7_10`) to
 test playing above the 5th fret. Detected notes are matched to played notes in
-order (longest common subsequence of pitches). Measured 2026-11-23 at default
+order (longest common subsequence of pitches). Measured 2026-11-24 at default
 settings:
 
 | Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
 |---|---|---|---|---|---|---|
 | no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 | 10 / 10 |
 | no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 | 11 / 11 |
-| no_chord3 | 12 | 11 | 1 | 3 | 12 / 12 | 9 / 11 |
+| no_chord3 | 12 | 11 | 1 | 3 | 5 / 12 | 7 / 11 |
 | no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
-| no_chord5 | 16 | 16 | 0 | 2 | 10 / 9 | 10 / 9 |
-| no_chord6 | 16 | 15 | 1 | 2 | 10 / 9 | 9 / 8 |
+| no_chord5 | 16 | 16 | 0 | 2 | 11 / 9 | 11 / 9 |
+| no_chord6 | 16 | 15 | 1 | 2 | 11 / 9 | 11 / 8 |
 | pent5 | 8 | 8 | 0 | 6 | 7 / 2 | 8 / 2 |
 | neck1 | 10 | 10 | 0 | 2 | 10 / 5 | 10 / 5 |
-| **Total** | **111** | **108** | **3** | **23** | **96 / 84 (86% / 76%)** | **92 / 81 (83% / 73%)** |
+| **Total** | **111** | **108** | **3** | **23** | **91 / 84 (82% / 76%)** | **93 / 81 (84% / 73%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
@@ -212,8 +212,10 @@ B|---5-----4-5-7-----------------2-|  B|-------------7-0-0-9-7-9-7-7-----|  B|--
 G|-----6-6-------4-4---------------|  G|-----6-6-8---------------------6-|  G|---------------------------------|
 ```
 
-It now beats the baseline on fret choice (96/111 vs 84/111) and end to end
-(92/111 vs 81/111). Most of the remaining end-to-end errors aren't fret-choice
+It now beats the baseline on fret choice (91/111 vs 84/111) and end to end
+(93/111 vs 81/111). The paragraphs below describe how it got there; the weights
+were last tuned in decision 018, which costs `no_chord3` (12 to 5 on the
+correct notes) and gains on `no_chord5/6` and GuitarSet. Most of the remaining end-to-end errors aren't fret-choice
 problems. In `no_chord3` the model hears E5 instead of E4, and the optimizer
 follows that wrong note up the neck while the baseline ignores it. In
 `no_chord1/2` the player frets E4 at B5, a choice neither assigner makes.
@@ -232,7 +234,7 @@ correct notes. It played the phrase in open position and shifted to frets 5–8
 for the last two notes, because every fret the *fingers* moved was charged as
 if the *hand* had moved: inside a box that made 5→7→5→8 look like a lot of
 movement. Now only moving the hand's 4-fret window costs (per fret it moves,
-plus the shift penalty); finger moves inside the window cost a quarter as much.
+plus the shift penalty); finger moves inside the window cost less.
 `pent5` on the correct notes went from 2/8 to 7/8 (the first G3 still goes to
 the open G string, since before the first fretted note the hand isn't anywhere
 yet). Nothing else changed on the eight clips.
@@ -281,23 +283,26 @@ These clips helped find decision 015, so they're no longer blind.
 ### Fret choice on GuitarSet
 
 `scripts/score_guitarset.py` compares each assigner with the string and fret
-four GuitarSet players really used, on single-note passages only
+GuitarSet's players really used, on single-note passages only
 (solo files, cut at chords and overlapping notes). It uses GuitarSet's labelled
 notes, so transcription plays no part. Measured 2026-11-24:
 
-| Player | Passages | Notes | Optimizer | Baseline |
-|---|---|---|---|---|
-| 00 | 56 | 1005 | 50.7% | 50.9% |
-| 01 | 107 | 2982 | 20.1% | 11.1% |
-| 02 | 70 | 1781 | 25.4% | 22.0% |
-| 03 | 73 | 2151 | 55.6% | 37.7% |
-| **Total** | **306** | **7919** | **34.8%** | **25.8%** |
+| Player | Passages | Notes | Optimizer | Before tuning | Baseline |
+|---|---|---|---|---|---|
+| 00 | 56 | 1005 | 57.8% | 50.7% | 50.9% |
+| 01 | 107 | 2982 | 43.3% | 20.1% | 11.1% |
+| 02 | 70 | 1781 | 42.8% | 25.4% | 22.0% |
+| 03 | 73 | 2151 | 68.9% | 55.6% | 37.7% |
+| **Tuning players** | **306** | **7919** | **52.0%** | **34.8%** | **25.8%** |
+| 04 | 72 | 2179 | 58.3% | 43.2% | 35.7% |
+| 05 | 51 | 2070 | 46.1% | 36.3% | 19.5% |
+| **Held-out players** | **123** | **4249** | **52.4%** | **39.8%** | **27.8%** |
 
-The optimizer beats the baseline overall and on three of four players, but
-agrees with the player on only about a third of notes, far below the 86% on
-our own clips, which are mostly in open position. The players use open strings
-for 1% of notes and average fret 7; the optimizer uses 13% and averages fret
-4. Players 04 and 05 are held out and haven't been scored (decision 017).
+The optimizer's weights were tuned on players 00-03 and then scored once on 04
+and 05 (decision 018), so the held-out row is the one to trust: 52.4%, against
+27.8% for the baseline. The same notes can be fingered several ways, so 100%
+isn't reachable. The optimizer still sits lower on the neck than the players
+(average fret 5.4 vs 7.1) and uses more open strings (10% vs 1%).
 
 To run it, download `annotation.zip` (39 MB) from
 [Zenodo](https://zenodo.org/records/3371780) into `data/guitarset/`
@@ -406,13 +411,13 @@ Totals (optimizer / baseline, lower is better):
 
 | Position shifts | Fret travel | Max stretch | String changes |
 |---|---|---|---|
-| 4 / 15 | 113 / 116 | 27 / 27 | 40 / 25 |
+| 4 / 15 | 121 / 116 | 25 / 27 | 45 / 25 |
 
 The optimizer never shifts more than the baseline on any phrase, and in total
 shifts about a quarter as often. The cost is more string changes, which is
 what staying in one position takes. Fret travel counts finger moves inside a
 box too, so since decision 015 (which stopped charging those as hand movement)
-it's only slightly lower than the baseline's. A test keeps these guarantees.
+and the weights were tuned on real players (decision 018) it's slightly higher than the baseline's. A test keeps these guarantees.
 
 ## Benchmarking
 

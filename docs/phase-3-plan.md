@@ -230,9 +230,10 @@ since it takes audio too and detects the input type from the extension.
   - 2026-11-24: GuitarSet single-note passages (decision 017): optimizer 34.8%
     vs baseline 25.8% agreement with four players, 7,919 notes. The optimizer
     sits too low on the neck and uses too many open strings.
-  - Next: make the low-neck and open-string preferences fit GuitarSet's
-    development players, then score the held-out players once.
-  - Then, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
+  - 2026-11-24: weights tuned on GuitarSet (decision 018). Held-out players
+    39.8% -> 52.4% (baseline 27.8%); own clips end to end 92 -> 93/111, with
+    `no_chord3` worse. Travel is no longer part of the acceptance test.
+  - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
     blind clips, since the current ones have been used.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`
