@@ -142,7 +142,8 @@ This is a smoke test, not an accuracy measurement.
 
 ### Observed on real recordings
 
-Eight single-note phrases recorded on a phone (M4A, 48 kHz, 5–14 s each) in
+Eight single-note phrases on a classical (nylon-string) guitar, recorded on a
+phone (M4A, 48 kHz, 5–14 s each) in
 `samples/audio_clips/`, each checked against a tab of what was actually played
 (`*.tab.txt`) with `scripts/evaluate.py`. `no_chord2` repeats the `no_chord1`
 phrase and `no_chord6` repeats `no_chord5`. `pent5` and `neck1` were recorded
@@ -362,6 +363,7 @@ python scripts/make_tab.py clip.m4a --method both                     # optimize
 python scripts/make_tab.py clip.m4a --json                            # machine-readable
 python scripts/make_tab.py clip.m4a --style lead                      # open, balanced (default) or lead
 python scripts/make_tab.py clip.m4a --list-notes                      # number the notes
+python scripts/make_tab.py clip.m4a --max-fret 19                         # neck length; most classical guitars
 python scripts/make_tab.py clip.m4a --alternatives 3                      # several tabs to choose from
 python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5         # hints; the rest is solved around them
 ```

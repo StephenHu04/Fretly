@@ -608,3 +608,8 @@ It did help on some clips: `pos4_riff` 1 to 8 of 8, `no_chord5` 11 to 15 of 16,
 
 **To revisit:** record labelled notes on the target guitar and phone (every
 string, open to about fret 12), and train or calibrate on those.
+
+**Added 2026-11-25.** Our clips are played on a classical (nylon-string)
+guitar, confirmed by the player after the trial. Nylon strings differ in
+stiffness, brightness and decay, so this is another likely cause if, as we
+believe but haven't verified, GuitarSet's guitar has steel strings.
