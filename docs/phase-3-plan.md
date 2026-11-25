@@ -227,7 +227,12 @@ since it takes audio too and detects the input type from the extension.
     `pent5` on the correct notes 2/8 → 7/8; nothing else changed.
   - 2026-11-24: shifts get cheaper with the rest before them (decision 016).
     `pent5` end to end 2/8 → 8/8; total 92/111 vs 81/111.
-  - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
+  - 2026-11-24: GuitarSet single-note passages (decision 017): optimizer 34.8%
+    vs baseline 25.8% agreement with four players, 7,919 notes. The optimizer
+    sits too low on the neck and uses too many open strings.
+  - Next: make the low-neck and open-string preferences fit GuitarSet's
+    development players, then score the held-out players once.
+  - Then, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
     blind clips, since the current ones have been used.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`

@@ -278,6 +278,42 @@ shift, which the optimizer prefers. That fingering is easy too; the player's
 choice probably comes from tone or habit, which the notes alone don't show.
 These clips helped find decision 015, so they're no longer blind.
 
+### Fret choice on GuitarSet
+
+`scripts/score_guitarset.py` compares each assigner with the string and fret
+four GuitarSet players really used, on single-note passages only
+(solo files, cut at chords and overlapping notes). It uses GuitarSet's labelled
+notes, so transcription plays no part. Measured 2026-11-24:
+
+| Player | Passages | Notes | Optimizer | Baseline |
+|---|---|---|---|---|
+| 00 | 56 | 1005 | 50.7% | 50.9% |
+| 01 | 107 | 2982 | 20.1% | 11.1% |
+| 02 | 70 | 1781 | 25.4% | 22.0% |
+| 03 | 73 | 2151 | 55.6% | 37.7% |
+| **Total** | **306** | **7919** | **34.8%** | **25.8%** |
+
+The optimizer beats the baseline overall and on three of four players, but
+agrees with the player on only about a third of notes, far below the 86% on
+our own clips, which are mostly in open position. The players use open strings
+for 1% of notes and average fret 7; the optimizer uses 13% and averages fret
+4. Players 04 and 05 are held out and haven't been scored (decision 017).
+
+To run it, download `annotation.zip` (39 MB) from
+[Zenodo](https://zenodo.org/records/3371780) into `data/guitarset/`
+(git-ignored), then from `backend/`:
+
+```bash
+python scripts/score_guitarset.py
+```
+
+Data: [GuitarSet](https://zenodo.org/records/3371780) (Q. Xi, R. Bittner,
+J. Pauwels, X. Ye and J. P. Bello, "GuitarSet: A Dataset for Guitar
+Transcription", ISMIR 2018), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Its annotations are
+converted to Fretly's note format when read; no GuitarSet files are included
+in this repository.
+
 ### Known limitations
 
 Apart from the octave ghosts, ringing open strings and low thumps above, these come
@@ -466,11 +502,13 @@ backend/
   tab/render.py                  plain-text tablature
   tab/evaluation.py              scoring against reference tabs
   tab/phrases.py                 fixed test phrases for comparing assigners
+  tab/guitarset.py               single-note passages from GuitarSet annotations
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/make_tab.py            command-line audio or MIDI -> tab
   scripts/evaluate.py            score the pipeline on clips with reference tabs
   scripts/compare_assigners.py   optimizer vs baseline on the fixed phrases
+  scripts/score_guitarset.py     fret choice against GuitarSet players
   scripts/benchmark_pipeline.py  cold start, inference speed and memory benchmark
   tests/                         pytest suite (fixtures generated at runtime)
 samples/                         local recordings (audio files are git-ignored)

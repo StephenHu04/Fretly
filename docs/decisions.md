@@ -409,3 +409,47 @@ end in-tab counts by (full, free) seconds:
 
 The gain rests on one clip and one 0.93 s gap, and (0.1, 0.5) totals the same
 92 through different clips. So this is a plausible rule, not a fitted value.
+
+---
+
+## 017 — Judge fret choice on GuitarSet's single-note passages
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+**Context.** Eleven clips from one player can't settle the cost model; decision
+016's gain rested on one of them.
+
+**Decision.** Use GuitarSet's annotations (CC BY 4.0), fret choice only. Basic
+Pitch was partly trained on GuitarSet, so transcription scores on it wouldn't
+be fair. Rules set before any score was seen: solo files only; notes starting
+within 50 ms or overlapping by more than 0.1 s count as chords, are dropped
+and end the passage; passages need 8 notes; players 04 and 05 are held out.
+
+**Results** (players 00-03):
+
+| Player | Passages | Notes | Optimizer | Baseline |
+|---|---|---|---|---|
+| 00 | 56 | 1005 | 50.7% | 50.9% |
+| 01 | 107 | 2982 | 20.1% | 11.1% |
+| 02 | 70 | 1781 | 25.4% | 22.0% |
+| 03 | 73 | 2151 | 55.6% | 37.7% |
+| **Total** | **306** | **7919** | **34.8%** | **25.8%** |
+
+| Version | Agreement | Shifts | Open strings | Mean fret |
+|---|---|---|---|---|
+| Baseline | 25.8% | 567 | 15.6% | 2.9 |
+| Optimizer before 015 | 33.3% | 168 | 14.3% | 4.2 |
+| 015 only | 34.8% | 107 | 12.6% | 4.4 |
+| 015 + 016 (current) | 34.8% | 143 | 12.8% | 4.3 |
+| The players | | 636 | 1.0% | 7.1 |
+
+**Consequences.** Decision 015 is supported (+1.5 points). Decision 016 is not:
+no change in total, with players 00 and 03 up and 01 and 02 down; it stays on
+the `pent5` evidence alone. The optimizer matches 57% of notes in passages
+whose mean fret is at most 5 and 28% above that. In 286 of 306 passages the
+player's own fingering costs more than ours, so the cost model is wrong, not
+the search. Players also shift far more than the optimizer, so "fewer shifts
+than the baseline" isn't the same as playing like a person.
+
+Agreement has a ceiling below 100%: the same notes can be fingered several
+ways and the notes alone don't say which position the player chose.
