@@ -29,6 +29,7 @@ samples/**/*.aif
 *.mid
 *.midi
 outputs/
+/data/
 
 # Editors / OS
 .vscode/
