@@ -35,7 +35,7 @@ from pipeline.run import transcribe_file
 from tab.assign import assign_lowest_fret
 from tab.cleanup import clean_notes
 from tab.evaluation import exact_in_tab, parse_reference, position_agreement, score_detection
-from tab.fretboard import Fretboard
+from tab.fretboard import DEFAULT_MAX_FRET, Fretboard
 from tab.optimizer import STYLES, OptimizerSettings, assign_optimized
 
 REFERENCE_SUFFIX = ".tab.txt"
@@ -174,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="Reference .tab.txt files or folders to search (default: ../samples)")
     parser.add_argument("--holdout", action="store_true",
                         help=f"Score only the held-out clips in ../samples/{HOLDOUT_DIR}")
+    parser.add_argument("--max-fret", type=int, default=DEFAULT_MAX_FRET, help="Highest fret on the guitar (classical: usually 19)")
     parser.add_argument("--style", choices=list(STYLES), default="balanced", help="Playing style for the optimizer")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
@@ -184,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args(argv)
 
-    fretboard = Fretboard()
+    if not 1 <= args.max_fret <= DEFAULT_MAX_FRET:
+        parser.error(f"--max-fret must be 1-{DEFAULT_MAX_FRET}")
+    fretboard = Fretboard(max_fret=args.max_fret)
     filters = {
         "octave_ghosts": not args.no_ghost_filter,
         "ringing_open_strings": not args.no_ring_filter,

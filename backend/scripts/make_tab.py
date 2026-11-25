@@ -34,7 +34,7 @@ from pipeline.transcribe import TranscriptionSettings
 from tab.alternatives import alternatives
 from tab.assign import Assigner, Assignment, assign_lowest_fret
 from tab.cleanup import clean_notes
-from tab.fretboard import Fretboard, Position
+from tab.fretboard import DEFAULT_MAX_FRET, Fretboard, Position
 from tab.metrics import PlayabilityMetrics, measure
 from tab.optimizer import STYLES, assign_optimized
 from tab.render import DEFAULT_WIDTH, render_tab, string_labels
@@ -91,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         "--method", choices=["optimized", "baseline", "both"], default="optimized",
         help="String/fret assigner (default: optimized)",
     )
+    parser.add_argument("--max-fret", type=int, default=DEFAULT_MAX_FRET, help="Highest fret on the guitar (classical: usually 19)")
     parser.add_argument("--style", choices=list(STYLES), default="balanced", help="Playing style for the optimizer")
     parser.add_argument("--start-fret", type=int, help="Fret the hand starts at (optimizer)")
     parser.add_argument("--pin", action="append", default=[], metavar="NOTE:STRINGFRET",
@@ -114,7 +115,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.method == "baseline" and hints:
         parser.error("--style, --pin, --start-fret and --alternatives need the optimizer")
 
-    fretboard = Fretboard()
+    if not 1 <= args.max_fret <= DEFAULT_MAX_FRET:
+        parser.error(f"--max-fret must be 1-{DEFAULT_MAX_FRET}")
+    fretboard = Fretboard(max_fret=args.max_fret)
     try:
         pins = parse_pins(args.pin, fretboard)
     except ValueError as exc:

@@ -100,6 +100,14 @@ def test_errors_exit_with_code_1(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert "error [unreadable_midi]" in capsys.readouterr().err
 
 
+def test_max_fret_limits_the_neck(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    midi = write_midi(tmp_path / "high.mid", [(0.0, 0.5, 83, 100), (0.5, 1.0, 84, 100)])  # e string frets 19, 20
+    assert main([str(midi), "--max-fret", "19", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)["results"]["optimized"]
+    assert [n["fret"] for n in result["notes"]] == [19]
+    assert [n["pitch"] for n in result["unplayable"]] == [84]
+
+
 def test_hints_and_styles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     midi = write_midi(tmp_path / "riff.mid", [(0.0, 0.5, 64, 100), (0.5, 1.0, 63, 100), (1.0, 1.5, 59, 100)])
     assert main([str(midi), "--pin", "1:B5", "--list-notes"]) == 0
@@ -117,7 +125,7 @@ def test_hints_and_styles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
 
 @pytest.mark.parametrize(
     "extra",
-    [["--pin", "1-B5"], ["--pin", "1:H5"], ["--pin", "1:B5", "--pin", "1:G9"], ["--method", "baseline", "--style", "lead"]],
+    [["--max-fret", "0"], ["--max-fret", "30"], ["--pin", "1-B5"], ["--pin", "1:H5"], ["--pin", "1:B5", "--pin", "1:G9"], ["--method", "baseline", "--style", "lead"]],
 )
 def test_bad_options_are_usage_errors(extra: list[str], capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
