@@ -110,6 +110,9 @@ def test_hints_and_styles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert main([str(midi), "--pin", "1:B6"]) == 1
     assert "doesn't play note 1 (E4)" in capsys.readouterr().err
     assert main([str(midi), "--start-fret", "0"]) == 1
+    capsys.readouterr()
+    assert main([str(midi), "--method", "both", "--alternatives", "3", "--json"]) == 0
+    assert {"optimized", "option 2", "baseline"} <= set(json.loads(capsys.readouterr().out)["results"])
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,8 @@
 """Turn a guitar recording or a MIDI file into tablature.
 
 Pipeline: [audio -> validate -> FFmpeg -> Basic Pitch ->] notes ->
-cleanup (octave ghosts, ringing open strings, low thumps) -> string/fret assignment ->
+cleanup (octave ghosts, ringing open strings, low thumps, shared onsets) -> string/fret
+assignment ->
 plain-text tab + metrics.
 
 Audio files run the Phase 2 transcription first; .mid/.midi files skip it.
@@ -11,6 +12,7 @@ Usage:
     python scripts/make_tab.py clip.mid --method both     # baseline vs optimizer
     python scripts/make_tab.py clip.m4a --json
     python scripts/make_tab.py clip.m4a --style lead      # open, balanced or lead
+    python scripts/make_tab.py clip.m4a --alternatives 3  # up to 3 different tabs
     python scripts/make_tab.py clip.m4a --list-notes      # numbers for --pin
     python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5
 """
@@ -29,6 +31,7 @@ from pipeline.errors import PipelineError
 from pipeline.midi_parser import NoteEvent, parse_midi
 from pipeline.run import transcribe_file
 from pipeline.transcribe import TranscriptionSettings
+from tab.alternatives import alternatives
 from tab.assign import Assigner, Assignment, assign_lowest_fret
 from tab.cleanup import clean_notes
 from tab.fretboard import Fretboard, Position
@@ -92,10 +95,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start-fret", type=int, help="Fret the hand starts at (optimizer)")
     parser.add_argument("--pin", action="append", default=[], metavar="NOTE:STRINGFRET",
                         help="Fix a note's position, e.g. 3:G5; repeatable (optimizer)")
+    parser.add_argument("--alternatives", type=int, default=1, metavar="N", help="Show up to N different tabs (optimizer)")
     parser.add_argument("--list-notes", action="store_true", help="Number the notes, for --pin")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Keep octave-ghost notes")
     parser.add_argument("--no-ring-filter", action="store_true", help="Keep ringing open-string notes")
     parser.add_argument("--no-thump-filter", action="store_true", help="Keep quiet low notes under louder ones")
+    parser.add_argument("--no-onset-filter", action="store_true", help="Audio only: keep quieter notes that start together with another")
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Wrap tab lines at this width")
     parser.add_argument("--out-dir", default="outputs", help="Where to write audio/MIDI artifacts")
     parser.add_argument("--skip-preprocess", action="store_true", help="Audio only: skip FFmpeg")
@@ -103,8 +108,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frame-threshold", type=float, default=0.3, help="Audio only")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args(argv)
-    if args.method == "baseline" and (args.pin or args.start_fret is not None or args.style != "balanced"):
-        parser.error("--style, --pin and --start-fret need the optimizer")
+    if args.alternatives < 1:
+        parser.error("--alternatives must be at least 1")
+    hints = args.pin or args.start_fret is not None or args.style != "balanced" or args.alternatives > 1
+    if args.method == "baseline" and hints:
+        parser.error("--style, --pin, --start-fret and --alternatives need the optimizer")
 
     fretboard = Fretboard()
     try:
@@ -135,14 +143,20 @@ def main(argv: list[str] | None = None) -> int:
         octave_ghosts=not args.no_ghost_filter,
         ringing_open_strings=not args.no_ring_filter,
         low_thumps=not args.no_thump_filter,
+        # A MIDI file's simultaneous notes are written, not misheard.
+        shared_onsets=source["type"] == "audio" and not args.no_onset_filter,
     )
     detected, notes = len(notes), cleanup.kept
     methods = list(ASSIGNERS) if args.method == "both" else [args.method]
-    assigners = ASSIGNERS | {
-        "optimized": partial(assign_optimized, settings=STYLES[args.style], pins=pins, start_fret=args.start_fret)
-    }
+    options = partial(alternatives, settings=STYLES[args.style], pins=pins, start_fret=args.start_fret)
+    assignments: dict[str, Assignment] = {}
     try:
-        assignments = {m: assigners[m](notes, fretboard) for m in methods}
+        for m in methods:
+            if m == "optimized":
+                for i, option in enumerate(options(notes, fretboard, args.alternatives), start=1):
+                    assignments[m if i == 1 else f"option {i}"] = option
+            else:
+                assignments[m] = ASSIGNERS[m](notes, fretboard)
     except ValueError as exc:
         print(f"error [invalid_hint]: {exc}", file=sys.stderr)
         return 1
@@ -160,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
                     "unplayable": [n.to_dict() for n in assignments[m].unplayable],
                     "metrics": metrics[m].to_dict(),
                 }
-                for m in methods
+                for m in assignments
             },
         }, indent=2))
         return 0
@@ -183,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_notes:
         for i, n in enumerate(sorted(notes), start=1):
             print(f"  note {i}: {n.name} at {n.start_s:.2f} s")
-    for m in methods:
+    for m in assignments:
         print(f"\n{m.capitalize()}:\n{tabs[m]}")
     print("\n" + _metrics_table(metrics))
     return 0
