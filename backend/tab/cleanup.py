@@ -7,6 +7,7 @@
   string ring, and the model hears that as a new note (decision 011).
 - Low thumps: short, quiet low notes (mostly G2) under a louder note, from
   the guitar body or the pick attack (decision 014).
+- Shared onsets: with single notes, one pluck starts one note (decision 020).
 
 Left in, all of them become notes nobody played.
 """
@@ -173,6 +174,41 @@ def remove_low_thumps(notes: Iterable[NoteEvent], settings: ThumpFilterSettings 
 
 
 @dataclass(frozen=True)
+class OnsetFilterSettings:
+    max_onset_gap_s: float = 0.05  # same definition of "together" as tab.guitarset
+    # Near-ties are kept: in no_chord2 the real note is the quieter one (0.95).
+    max_velocity_ratio: float = 0.9
+
+    def __post_init__(self) -> None:
+        if self.max_onset_gap_s < 0:
+            raise ValueError("max_onset_gap_s must be non-negative")
+        if not 0 < self.max_velocity_ratio <= 1:
+            raise ValueError("max_velocity_ratio must be in (0, 1]")
+
+
+def remove_shared_onsets(notes: Iterable[NoteEvent], settings: OnsetFilterSettings | None = None) -> FilterResult:
+    """Drop notes that start together with a clearly louder one.
+
+    Assumes single notes, so it must be off when chords are expected (3.9).
+    """
+    settings = settings or OnsetFilterSettings()
+    ordered = sorted(notes)
+    kept: list[NoteEvent] = []
+    removed: list[NoteEvent] = []
+    for note in ordered:
+        if any(
+            abs(note.start_s - other.start_s) <= settings.max_onset_gap_s
+            and note.velocity <= settings.max_velocity_ratio * other.velocity
+            for other in ordered
+            if other is not note
+        ):
+            removed.append(note)
+        else:
+            kept.append(note)
+    return FilterResult(kept, removed)
+
+
+@dataclass(frozen=True)
 class CleanupResult:
     kept: list[NoteEvent]
     removed: dict[str, list[NoteEvent]]  # reason -> notes removed for it
@@ -184,6 +220,7 @@ def clean_notes(
     octave_ghosts: bool = True,
     ringing_open_strings: bool = True,
     low_thumps: bool = True,
+    shared_onsets: bool = True,
 ) -> CleanupResult:
     """Run the enabled filters in order and report what each one removed."""
     kept = sorted(notes)
@@ -197,4 +234,7 @@ def clean_notes(
     if low_thumps:
         result = remove_low_thumps(kept)
         kept, removed["low_thump"] = result.kept, result.removed
+    if shared_onsets:
+        result = remove_shared_onsets(kept)
+        kept, removed["shared_onset"] = result.kept, result.removed
     return CleanupResult(kept, removed)

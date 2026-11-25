@@ -6,12 +6,14 @@ from pipeline.midi_parser import NoteEvent
 from tab.cleanup import (
     CleanupResult,
     GhostFilterSettings,
+    OnsetFilterSettings,
     RingingFilterSettings,
     ThumpFilterSettings,
     clean_notes,
     remove_low_thumps,
     remove_octave_ghosts,
     remove_ringing_open_strings,
+    remove_shared_onsets,
 )
 from tab.fretboard import Fretboard
 
@@ -214,17 +216,42 @@ def test_thump_settings_are_configurable_and_checked() -> None:
             ThumpFilterSettings(**kwargs)
 
 
+# --- Shared onsets --------------------------------------------------------------
+
+
+def test_quieter_note_starting_together_is_removed() -> None:
+    # no_chord4: G3 under C#4.
+    real, extra = NoteEvent(5.49, 5.98, 61, 88), NoteEvent(5.51, 5.65, 55, 50)
+    assert remove_shared_onsets([real, extra]).removed == [extra]
+
+
+def test_near_ties_and_later_notes_are_kept() -> None:
+    # no_chord2: the real E4 is slightly quieter than the extra B3.
+    tie = [NoteEvent(2.56, 2.79, 64, 71), NoteEvent(2.57, 2.80, 59, 75)]
+    assert remove_shared_onsets(tie).removed == []
+    later = [NoteEvent(0.0, 1.0, 64, 100), NoteEvent(0.1, 0.5, 59, 40)]
+    assert remove_shared_onsets(later).removed == []
+
+
+@pytest.mark.parametrize("kwargs", [{"max_onset_gap_s": -1}, {"max_velocity_ratio": 0}])
+def test_invalid_onset_settings_are_rejected(kwargs: dict[str, float]) -> None:
+    with pytest.raises(ValueError):
+        OnsetFilterSettings(**kwargs)
+
+
 def test_clean_notes_runs_each_enabled_filter() -> None:
     real, ghost = NoteEvent(0.0, 0.5, 40, 100), NoteEvent(0.0, 0.5, 52, 45)
     fretted, ringing = NoteEvent(1.0, 1.5, 56, 90), NoteEvent(1.5, 2.0, 55, 50)
     melody, thump = NoteEvent(3.0, 3.5, 74, 90), NoteEvent(3.0, 3.2, 43, 40)
-    notes = [real, ghost, fretted, ringing, melody, thump]
+    loud, shared = NoteEvent(5.0, 5.5, 64, 100), NoteEvent(5.0, 5.6, 60, 70)
+    notes = [real, ghost, fretted, ringing, melody, thump, shared, loud]
 
     result = clean_notes(notes, BOARD)
-    assert result.kept == [real, fretted, melody]
-    assert result.removed == {"octave_ghost": [ghost], "ringing_open_string": [ringing], "low_thump": [thump]}
+    assert result.kept == [real, fretted, melody, loud]
+    assert result.removed == {"octave_ghost": [ghost], "ringing_open_string": [ringing], "low_thump": [thump],
+                              "shared_onset": [shared]}
 
-    assert clean_notes(notes, BOARD, octave_ghosts=False, low_thumps=False).removed == {
+    assert clean_notes(notes, BOARD, octave_ghosts=False, low_thumps=False, shared_onsets=False).removed == {
         "ringing_open_string": [ringing]
     }
-    assert clean_notes(notes, BOARD, False, False, False) == CleanupResult(sorted(notes), {})
+    assert clean_notes(notes, BOARD, False, False, False, False) == CleanupResult(sorted(notes), {})

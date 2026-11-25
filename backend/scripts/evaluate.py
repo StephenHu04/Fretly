@@ -178,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
     parser.add_argument("--no-thump-filter", action="store_true", help="Score without the low-thump filter")
+    parser.add_argument("--no-onset-filter", action="store_true", help="Score without the shared-onset filter")
     parser.add_argument("--out-dir", type=Path, default=Path("outputs/evaluate"))
     parser.add_argument("-v", "--verbose", action="store_true", help="List missed and extra notes")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
@@ -188,6 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         "octave_ghosts": not args.no_ghost_filter,
         "ringing_open_strings": not args.no_ring_filter,
         "low_thumps": not args.no_thump_filter,
+        "shared_onsets": not args.no_onset_filter,
     }
     clips = []
     if args.holdout and args.paths:
