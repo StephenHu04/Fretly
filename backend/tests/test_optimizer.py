@@ -9,7 +9,7 @@ from pipeline.midi_parser import NoteEvent
 from tab.assign import assign_lowest_fret
 from tab.fretboard import Fretboard, Position
 from tab.metrics import measure
-from tab.optimizer import OptimizerSettings, assign_optimized, sequence_cost
+from tab.optimizer import OptimizerSettings, assign_optimized, rests_before, sequence_cost
 
 BOARD = Fretboard()
 
@@ -140,6 +140,39 @@ def test_mid_neck_phrase_matches_the_player_more_closely() -> None:
     assert matches(OptimizerSettings(open_string_weight=0, height_weight=0.1)) == 5  # before decision 012
 
 
+# --- Hand movement vs finger movement (decision 015) ---------------------------
+
+
+def test_pentatonic_box_is_played_in_position() -> None:
+    # pent5: the player stays in 5th position. Charging every finger move as
+    # hand movement made open position plus a shift up for the last two notes
+    # look cheaper.
+    played = [Position(4, 5), Position(4, 7), Position(3, 5), Position(3, 7),
+              Position(2, 5), Position(2, 8), Position(1, 5), Position(1, 8)]  # fmt: skip
+    path = positions([55, 57, 60, 62, 64, 67, 69, 72])
+    assert path[1:] == played[1:]
+    # The first G3 goes to the open G: before any fretted note the hand isn't
+    # anywhere yet, so an open string costs nothing.
+    assert path[0] == Position(3, 0)
+    assert measure(assign_optimized(melody([55, 57, 60, 62, 64, 67, 69, 72]), BOARD)).position_shifts == 0
+
+
+def test_finger_moves_inside_the_window_are_cheap() -> None:
+    settings = OptimizerSettings(height_weight=0, string_weight=0)
+    inside = sequence_cost([Position(4, 5), Position(4, 8)], settings)
+    assert inside == pytest.approx(settings.finger_weight * 3)
+
+
+def test_shift_cost_grows_with_how_far_the_hand_moves() -> None:
+    settings = OptimizerSettings(height_weight=0, string_weight=0)
+    near = sequence_cost([Position(1, 5), Position(1, 9)], settings)  # window 5-8 -> reach 9
+    far = sequence_cost([Position(1, 5), Position(1, 15)], settings)
+    assert near == pytest.approx(settings.shift_weight + settings.move_weight * 1)
+    assert far == pytest.approx(settings.shift_weight + settings.move_weight * 7)
+    down = sequence_cost([Position(1, 9), Position(1, 3)], settings)  # window 6-9 -> reach 3
+    assert down == pytest.approx(settings.shift_weight + settings.move_weight * 3)
+
+
 def test_open_string_cost_grows_with_hand_height() -> None:
     near, far = Position(4, 5), Position(3, 9)  # hand reaching fret 5 vs fret 9
     open_b = Position(2, 0)
@@ -148,3 +181,58 @@ def test_open_string_cost_grows_with_hand_height() -> None:
     extra_far = sequence_cost([far, open_b], settings) - sequence_cost([far], settings)
     assert extra_near == pytest.approx(settings.open_string_weight * 1)
     assert extra_far == pytest.approx(settings.open_string_weight * 5)
+
+
+# --- Shifts during rests (decision 016) -----------------------------------------
+
+
+def test_shift_cost_falls_with_the_rest_before_it() -> None:
+    settings = OptimizerSettings(height_weight=0, string_weight=0)
+    shift = [Position(1, 5), Position(1, 9)]
+    full = sequence_cost(shift, settings)
+
+    def after(rest_s: float) -> float:
+        return sequence_cost(shift, settings, [0.0, rest_s])
+
+    assert after(0.25) == pytest.approx(full)
+    assert after(0.625) == pytest.approx(full / 2)
+    assert after(1.0) == after(5.0) == 0
+
+
+def test_rests_count_silence_not_time_between_onsets() -> None:
+    notes = [NoteEvent(0, 2, 60, 90), NoteEvent(0.5, 0.7, 62, 90), NoteEvent(3, 4, 64, 90)]
+    assert rests_before(notes) == [0.0, 0.0, 1.0]
+
+
+def test_hand_can_move_up_during_a_rest() -> None:
+    # Low notes on frets 1-3, then the pent5 box: straight away the hand stays
+    # low, after a second of silence it goes to 5th position.
+    low, box = [41, 42, 43], [55, 57, 60, 62, 64, 67, 69, 72]
+
+    def box_frets(rest_s: float) -> list[int]:
+        start = len(low) * 0.25 + rest_s
+        later = [NoteEvent(start + n.start_s, start + n.end_s, n.pitch, 100) for n in melody(box)]
+        return [t.position.fret for t in assign_optimized(melody(low) + later, BOARD).notes[len(low):]]
+
+    assert box_frets(0.0)[0] == 0
+    assert box_frets(1.0)[1:] == [7, 5, 7, 5, 8, 5, 8]
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_matches_brute_force_minimum_with_rests(seed: int) -> None:
+    rng = random.Random(seed)
+    notes, t = [], 0.0
+    for _ in range(5):
+        notes.append(NoteEvent(t, t + 0.2, rng.randint(52, 76), 100))
+        t += 0.2 + rng.choice([0.0, 0.4, 1.0])
+    rests = rests_before(notes)
+    best = min(
+        sequence_cost(c, rests=rests) for c in itertools.product(*(BOARD.candidates(n.pitch) for n in notes))
+    )
+    got = [t.position for t in assign_optimized(notes, BOARD).notes]
+    assert sequence_cost(got, rests=rests) == pytest.approx(best)
+
+
+def test_invalid_rest_settings_are_rejected() -> None:
+    with pytest.raises(ValueError):
+        OptimizerSettings(full_cost_rest_s=1.0, free_rest_s=0.5)
