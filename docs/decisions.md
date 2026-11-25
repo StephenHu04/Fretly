@@ -538,3 +538,73 @@ look, though no weight here was chosen using them. The style has to be chosen
 by the user: `lead` ruins open-position clips (`no_chord4` 25 to 3) and `open`
 is worst up the neck. Picking the best style per clip afterwards would not be a
 fair score, so it isn't reported.
+
+---
+
+## 020 — One pluck starts one note
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+**Decision.** For audio, drop a note that starts within 50 ms of another and is
+at most 0.9 times as loud. 50 ms is the definition of "together" used for
+GuitarSet. Near-ties stay, because in `no_chord2` the real note (71) is quieter
+than the extra (75); 0.9 was chosen after seeing that. Not applied to MIDI,
+whose simultaneous notes are written rather than misheard. Must be off for
+chords (3.9).
+
+**Consequences.** Main clips: 7 extras removed (23 to 16), no real notes,
+precision 82% to 87%. Holdout: 1 removed (`pos4_riff`), no real notes. In-tab
+score unchanged at 93/111 for `balanced`, 92 to 94 for `open`, 64 to 47 for
+`lead` (which was wrong for those clips anyway).
+
+---
+
+## 021 — Offer alternative tabs
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+**Decision.** `tab.alternatives` returns the optimizer's choice plus tabs from
+the other styles and home frets, cheapest first, each with at least 30% of its
+notes in different places from every earlier one.
+
+**Consequences.** Agreement of the best option with the player, picked knowing
+the answer: players 00-03, 52.0 / 71.3 / 79.5% for 1 / 2 / 3 options; players
+04-05, 52.4 / 70.3 / 76.7%. This is how often a good option is on offer, not
+accuracy. The 30% and the home frets were not tuned.
+
+---
+
+## 022 — Trial: telling the string from the sound (not adopted)
+
+**Date:** 2026-11-24 · **Status:** Not adopted; revisit with more recordings
+
+**Question.** The same pitch sounds different on different strings. Can that
+settle positions the notes leave open? Rule fixed beforehand: build it only if
+it beats a pitch-only control on unseen players and helps on our phone clips.
+
+**Method.** GuitarSet microphone audio, the 7,919 single-note solo notes of
+players 00-03, leaving one player out each time (04 and 05 not used). Features
+per note: relative strength of 15 harmonics, inharmonicity, spectral centroid,
+decay and attack, with the pitch; gradient-boosted trees. String probabilities
+were added to the optimizer's cost (balanced style, weight 1 shown). "Habit
+removed" divides by the pitch-only model, to keep only what the sound adds.
+GuitarSet's own note times and pitches were used.
+
+| Added to the optimizer | GuitarSet, left-out players | Our 10 clips, in tab |
+|---|---|---|
+| nothing (current) | 52.0% | **103** |
+| pitch only (control) | 63.2% | 48 |
+| sound + pitch | 90.4% | 67 |
+| sound, habit removed | **92.1%** | 97 |
+
+**Outcome.** The string is clearly audible within GuitarSet, but it doesn't
+carry over to our recordings: every variant and weight (0.5, 1, 2, 4) scored
+below the current 103 of 128 notes; the best was 98. Likely causes, not
+separated here: only 80 of the 7,919 training notes are open strings, the same
+kind of recording setup throughout GuitarSet, and a different guitar and phone.
+It did help on some clips: `pos4_riff` 1 to 8 of 8, `no_chord5` 11 to 15 of 16,
+`no_chord3` 7 to 9 of 12 (habit removed, weight 1), while `no_chord1` fell from
+10 to 0.
+
+**To revisit:** record labelled notes on the target guitar and phone (every
+string, open to about fret 12), and train or calibrate on those.

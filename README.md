@@ -13,7 +13,7 @@ An end-to-end audio-to-tablature transcription engine combining polyphonic pitch
 - Phase 1 (environment, audio inspection): done.
 - Phase 2 (audio → MIDI): pipeline works end to end, is
   [benchmarked](#benchmarking), and has been checked against
-  [eight real recordings](#observed-on-real-recordings) (97% of played notes found, 82% of
+  [eight real recordings](#observed-on-real-recordings) (97% of played notes found, 87% of
   detected notes correct).
 - Phase 3 (tablature optimizer): in progress. The fretboard model, octave-ghost
   filter, lowest-fret baseline, playability metrics, dynamic programming
@@ -153,22 +153,22 @@ settings:
 
 | Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
 |---|---|---|---|---|---|---|
-| no_chord1 | 12 | 11 | 1 | 1 | 11 / 11 | 10 / 10 |
+| no_chord1 | 12 | 11 | 1 | 0 | 11 / 11 | 10 / 10 |
 | no_chord2 | 12 | 12 | 0 | 4 | 11 / 11 | 11 / 11 |
 | no_chord3 | 12 | 11 | 1 | 3 | 5 / 12 | 7 / 11 |
-| no_chord4 | 25 | 25 | 0 | 3 | 25 / 25 | 25 / 25 |
-| no_chord5 | 16 | 16 | 0 | 2 | 11 / 9 | 11 / 9 |
-| no_chord6 | 16 | 15 | 1 | 2 | 11 / 9 | 11 / 8 |
+| no_chord4 | 25 | 25 | 0 | 1 | 25 / 25 | 25 / 25 |
+| no_chord5 | 16 | 16 | 0 | 1 | 11 / 9 | 11 / 9 |
+| no_chord6 | 16 | 15 | 1 | 0 | 11 / 9 | 11 / 8 |
 | pent5 | 8 | 8 | 0 | 6 | 7 / 2 | 8 / 2 |
-| neck1 | 10 | 10 | 0 | 2 | 10 / 5 | 10 / 5 |
-| **Total** | **111** | **108** | **3** | **23** | **91 / 84 (82% / 76%)** | **93 / 81 (84% / 73%)** |
+| neck1 | 10 | 10 | 0 | 1 | 10 / 5 | 10 / 5 |
+| **Total** | **111** | **108** | **3** | **16** | **91 / 84 (82% / 76%)** | **93 / 81 (84% / 73%)** |
 
 *Frets*: given the correct notes, how often the assigner picks the player's
 string and fret. *In tab*: end to end, played notes that appear in the final
 tab exactly as played (right note, string and fret).
 
-**Detection: recall 97%, precision 82%.** Nearly every played note is found;
-about one detected note in six is extra. On the first four clips the extras
+**Detection: recall 97%, precision 87%.** Nearly every played note is found;
+about one detected note in eight is extra. On the first four clips the extras
 were:
 
 | Cause | Extras | Removed by filters | Example |
@@ -196,6 +196,11 @@ note an octave or more below a louder note that's sounding when it starts (or
 starts up to 80 ms later). On the eight clips it removed 17 notes and no real
 ones, taking precision from 73% to 82%. In single-note playing nothing sounds
 under a note, so the rule is safe there; it will need to be off for chords.
+
+The shared-onset filter (decision 020) keeps only the loudest of the notes that
+start within 50 ms of each other, unless they're nearly as loud. It removed 7
+more notes from these clips and no real ones (precision 82% to 87%). It applies
+to audio only, and also assumes single notes.
 
 **String/fret choices.** On the four open-position clips the optimizer and
 the baseline tie, because the lowest fret is already the natural choice there.
@@ -269,8 +274,8 @@ filter. Against the changed answers, with the current code
 | Clip | Played | Found | Missed | Extra | Frets: optimizer / baseline | In tab: optimizer / baseline |
 |---|---|---|---|---|---|---|
 | cross_descent | 9 | 9 | 0 | 0 | 9 / 2 | 9 / 2 |
-| pos4_riff | 8 | 8 | 0 | 2 | 1 / 1 | 1 / 1 |
-| **Total** | **17** | **17** | **0** | **2** | **10 / 3** | **10 / 3** |
+| pos4_riff | 8 | 8 | 0 | 1 | 1 / 1 | 1 / 1 |
+| **Total** | **17** | **17** | **0** | **1** | **10 / 3** | **10 / 3** |
 
 `cross_descent` (frets 7–9 across all six strings) is perfect end to end; the
 committed prediction wasn't, because it predates the low-thump filter.
@@ -310,9 +315,9 @@ playing, so the style is the user's choice:
 
 | Style | GuitarSet 04-05 | ...first note given | GuitarSet 00-03 (tuned on) | Our 8 clips, in tab | Holdout clips, in tab |
 |---|---|---|---|---|---|
-| `open` | 39.8% | 46.4% | 34.8% | 92/111 | 10/17 |
+| `open` | 39.8% | 46.4% | 34.8% | 94/111 | 10/17 |
 | `balanced` | 52.4% | 59.7% | 52.0% | 93/111 | 10/17 |
-| `lead` | 68.3% | 70.5% | 61.6% | 64/111 | 16/17 |
+| `lead` | 68.3% | 70.5% | 61.6% | 47/111 | 16/17 |
 
 To run it, download `annotation.zip` (39 MB) from
 [Zenodo](https://zenodo.org/records/3371780) into `data/guitarset/`
@@ -357,17 +362,23 @@ python scripts/make_tab.py clip.m4a --method both                     # optimize
 python scripts/make_tab.py clip.m4a --json                            # machine-readable
 python scripts/make_tab.py clip.m4a --style lead                      # open, balanced (default) or lead
 python scripts/make_tab.py clip.m4a --list-notes                      # number the notes
+python scripts/make_tab.py clip.m4a --alternatives 3                      # several tabs to choose from
 python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5         # hints; the rest is solved around them
 ```
 
 `--pin 3:G5` puts note 3 on the G string at fret 5 (`e` is the high E string,
-`E` the low one). `--pin` can be repeated.
+`E` the low one). `--pin` can be repeated. `--alternatives 3` prints up to
+three clearly different tabs. On GuitarSet players 04-05 the first matches the
+player on 52% of notes; the best of two (chosen by knowing the answer) matches
+70%, and the best of three 77%. That measures how often a good option is on
+offer, not accuracy.
 
 Audio goes through transcription first (as in the previous section); MIDI
-files skip it. Then three cleanup filters remove notes nobody played: octave
+files skip it. Then four cleanup filters remove notes nobody played: octave
 ghosts (`--no-ghost-filter` keeps them), open strings ringing after a
-finger lifts (`--no-ring-filter`) and quiet low thumps under a louder note
-(`--no-thump-filter`). Each remaining note gets a string and fret,
+finger lifts (`--no-ring-filter`), quiet low thumps under a louder note
+(`--no-thump-filter`) and, for audio, quieter notes starting together with a
+louder one (`--no-onset-filter`). Each remaining note gets a string and fret,
 and the result prints as tab with playability metrics:
 
 ```text
@@ -516,7 +527,8 @@ backend/
   pipeline/midi_parser.py        MIDI / model output -> NoteEvent
   pipeline/run.py                validate -> preprocess -> transcribe in one call
   tab/fretboard.py               tuning, positions, candidate string/fret positions
-  tab/cleanup.py                 cleanup filters: octave ghosts, ringing open strings, low thumps
+  tab/cleanup.py                 cleanup filters: octave ghosts, ringing open strings, low thumps,
+                                 shared onsets
   tab/assign.py                  assignment types and the lowest-fret baseline
   tab/metrics.py                 playability metrics (shifts, stretch, travel)
   tab/optimizer.py               dynamic programming (Viterbi) string/fret optimizer
@@ -524,6 +536,7 @@ backend/
   tab/evaluation.py              scoring against reference tabs
   tab/phrases.py                 fixed test phrases for comparing assigners
   tab/guitarset.py               single-note passages from GuitarSet annotations
+  tab/alternatives.py            several different tabs for the same notes
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/make_tab.py            command-line audio or MIDI -> tab

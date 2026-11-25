@@ -234,6 +234,8 @@ since it takes audio too and detects the input type from the extension.
     39.8% -> 52.4% (baseline 27.8%); own clips end to end 92 -> 93/111, with
     `no_chord3` worse. Travel is no longer part of the acceptance test.
   - 2026-11-24: pins, start fret and playing styles (decision 019).
+  - 2026-11-24: shared-onset filter (decision 020), alternative tabs (021), and
+    a trial of telling the string from the sound (022): not built in, see there.
   - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
     blind clips, since the current ones have been used.
 
