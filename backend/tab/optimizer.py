@@ -2,7 +2,7 @@
 
 The baseline picks each note's position on its own. This picks the whole
 sequence at once, minimising a transparent cost: hand movement, position
-shifts, string changes and a mild preference for low frets.
+shifts, string changes and a mild preference for a home position.
 
 State is (position, hand) rather than just position. The hand remembers the
 fret window used since the last shift and the last fretted note, so open
@@ -24,14 +24,15 @@ from tab.metrics import HAND_SPAN_FRETS
 
 @dataclass(frozen=True)
 class OptimizerSettings:
-    # Chosen against six reference clips with scripts/evaluate.py (decision 012);
-    # move/finger split in decision 015.
+    # Tuned on GuitarSet's development players, guarded by our own clips and the
+    # fixed phrases (decision 018). move and shift are unchanged since 015.
     move_weight: float = 1.0  # per fret the hand window moves on a shift
-    finger_weight: float = 0.25  # per fret the fingers move inside the window
+    finger_weight: float = 0.5  # per fret the fingers move inside the window
     shift_weight: float = 5.0  # per position shift (leaving the 4-fret window)
     string_weight: float = 0.5  # per string crossed between consecutive notes
-    height_weight: float = 0.05  # per fret, so ties prefer lower positions
-    open_string_weight: float = 0.5  # per fret the hand reaches above open position, for an open string
+    height_weight: float = 0.15  # per fret away from home_fret, for fretted notes
+    open_string_weight: float = 2.0  # per fret the hand reaches above open position, for an open string
+    home_fret: int = 6  # fret the height cost pulls fretted notes toward
     # Silence before a note makes a shift cheaper: full price up to
     # full_cost_rest_s, free from free_rest_s, linear between (decision 016).
     full_cost_rest_s: float = 0.25
@@ -61,7 +62,7 @@ def _step(
     prev: Position | None, hand: _Hand | None, pos: Position, settings: OptimizerSettings, rest_s: float = 0.0
 ) -> tuple[float, _Hand | None]:
     """Cost of playing ``pos`` next, and where the hand ends up."""
-    cost = settings.height_weight * pos.fret
+    cost = 0.0 if pos.is_open else settings.height_weight * abs(pos.fret - settings.home_fret)
     if prev is not None:
         cost += settings.string_weight * abs(pos.string - prev.string)
     if pos.is_open:

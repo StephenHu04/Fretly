@@ -26,11 +26,12 @@ def test_optimizer_never_shifts_more_than_the_baseline(phrase: Phrase) -> None:
 
 
 def test_optimizer_is_better_overall() -> None:
-    # Milestone 3.8 acceptance: fewer shifts and less hand travel in total.
+    # Milestone 3.8 acceptance. Fret travel was required too until decision 018:
+    # it counts finger moves, and GuitarSet players don't minimise it.
     opt = [measure(assign_optimized(p.notes(), BOARD)) for p in PHRASES]
     base = [measure(assign_lowest_fret(p.notes(), BOARD)) for p in PHRASES]
     assert sum(m.position_shifts for m in opt) < sum(m.position_shifts for m in base)
-    assert sum(m.fret_travel for m in opt) < sum(m.fret_travel for m in base)
+    assert sum(m.max_stretch for m in opt) <= sum(m.max_stretch for m in base)
 
 
 def test_compare_assigners_prints_every_phrase(capsys: pytest.CaptureFixture[str]) -> None:

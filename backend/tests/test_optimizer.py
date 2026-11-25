@@ -94,7 +94,9 @@ def test_deterministic() -> None:
 
 def test_with_only_the_low_fret_preference_it_matches_the_baseline() -> None:
     notes = melody([69, 72, 74, 76, 79, 81, 84])
-    height_only = OptimizerSettings(move_weight=0, shift_weight=0, string_weight=0, height_weight=1)
+    height_only = OptimizerSettings(
+        move_weight=0, finger_weight=0, shift_weight=0, string_weight=0, height_weight=1, home_fret=0
+    )
     baseline = [t.position for t in assign_lowest_fret(notes, BOARD).notes]
     assert positions([n.pitch for n in notes], settings=height_only) == baseline
     assert positions([n.pitch for n in notes]) != baseline
@@ -136,8 +138,8 @@ def test_mid_neck_phrase_matches_the_player_more_closely() -> None:
         return sum(a == b for a, b in zip(positions(phrase, settings), played_positions, strict=True))
 
     assert positions(phrase)[1] == Position(2, 5)
-    assert matches(None) == 10
-    assert matches(OptimizerSettings(open_string_weight=0, height_weight=0.1)) == 5  # before decision 012
+    assert matches(None) == 11
+    assert matches(OptimizerSettings(open_string_weight=0)) < 11
 
 
 # --- Hand movement vs finger movement (decision 015) ---------------------------
