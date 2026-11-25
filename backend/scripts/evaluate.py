@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,7 @@ from tab.assign import assign_lowest_fret
 from tab.cleanup import clean_notes
 from tab.evaluation import exact_in_tab, parse_reference, position_agreement, score_detection
 from tab.fretboard import Fretboard
-from tab.optimizer import assign_optimized
+from tab.optimizer import STYLES, OptimizerSettings, assign_optimized
 
 REFERENCE_SUFFIX = ".tab.txt"
 HOLDOUT_DIR = "holdout"
@@ -69,7 +70,12 @@ def find_audio(reference: Path) -> Path | None:
 
 
 def evaluate_clip(
-    reference: Path, audio: Path, fretboard: Fretboard, out_dir: Path, filters: dict[str, bool]
+    reference: Path,
+    audio: Path,
+    fretboard: Fretboard,
+    out_dir: Path,
+    filters: dict[str, bool],
+    settings: OptimizerSettings,
 ) -> dict[str, Any]:
     positions = parse_reference(reference.read_text(encoding="utf-8"), fretboard)
     pitches = [fretboard.pitch_at(p) for p in positions]
@@ -81,7 +87,7 @@ def evaluate_clip(
     # Fret choices are scored on the reference notes, so transcription
     # mistakes can't affect them. Timing is synthetic (one note every 0.3 s).
     ref_notes = [NoteEvent(i * 0.3, (i + 1) * 0.3, p, 80) for i, p in enumerate(pitches)]
-    assigners = (("optimized", assign_optimized), ("baseline", assign_lowest_fret))
+    assigners = (("optimized", partial(assign_optimized, settings=settings)), ("baseline", assign_lowest_fret))
     agreement = {
         name: position_agreement(positions, [t.position for t in assign(ref_notes, fretboard).notes])
         for name, assign in assigners
@@ -168,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="Reference .tab.txt files or folders to search (default: ../samples)")
     parser.add_argument("--holdout", action="store_true",
                         help=f"Score only the held-out clips in ../samples/{HOLDOUT_DIR}")
+    parser.add_argument("--style", choices=list(STYLES), default="balanced", help="Playing style for the optimizer")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
     parser.add_argument("--no-thump-filter", action="store_true", help="Score without the low-thump filter")
@@ -192,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"skipping {reference.name}: no matching audio file", file=sys.stderr)
             continue
         try:
-            clips.append(evaluate_clip(reference, audio, fretboard, args.out_dir, filters))
+            clips.append(evaluate_clip(reference, audio, fretboard, args.out_dir, filters, STYLES[args.style]))
         except PipelineError as exc:
             print(f"error [{exc.code}] in {audio.name}: {exc.message}", file=sys.stderr)
             return 1

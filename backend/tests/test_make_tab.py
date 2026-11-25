@@ -100,9 +100,32 @@ def test_errors_exit_with_code_1(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert "error [unreadable_midi]" in capsys.readouterr().err
 
 
+def test_hints_and_styles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    midi = write_midi(tmp_path / "riff.mid", [(0.0, 0.5, 64, 100), (0.5, 1.0, 63, 100), (1.0, 1.5, 59, 100)])
+    assert main([str(midi), "--pin", "1:B5", "--list-notes"]) == 0
+    out = capsys.readouterr().out
+    assert "note 1: E4 at 0.00 s" in out and "B|-5" in out
+    assert main([str(midi), "--style", "lead", "--start-fret", "7"]) == 0
+    assert "Optimized:" in capsys.readouterr().out
+    assert main([str(midi), "--pin", "1:B6"]) == 1
+    assert "doesn't play note 1 (E4)" in capsys.readouterr().err
+    assert main([str(midi), "--start-fret", "0"]) == 1
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [["--pin", "1-B5"], ["--pin", "1:H5"], ["--pin", "1:B5", "--pin", "1:G9"], ["--method", "baseline", "--style", "lead"]],
+)
+def test_bad_options_are_usage_errors(extra: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["riff.mid", *extra])
+    assert "error:" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "script",
-    ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py", "evaluate.py", "compare_assigners.py"],
+    ["make_tab.py", "transcribe_audio.py", "inspect_audio.py", "benchmark_pipeline.py", "evaluate.py", "compare_assigners.py",
+     "score_guitarset.py"],
 )
 def test_scripts_run_as_commands(script: str) -> None:
     # Run the way a user does, so import problems that pytest's path setup

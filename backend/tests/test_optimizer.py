@@ -9,7 +9,7 @@ from pipeline.midi_parser import NoteEvent
 from tab.assign import assign_lowest_fret
 from tab.fretboard import Fretboard, Position
 from tab.metrics import measure
-from tab.optimizer import OptimizerSettings, assign_optimized, rests_before, sequence_cost
+from tab.optimizer import STYLES, OptimizerSettings, assign_optimized, rests_before, sequence_cost
 
 BOARD = Fretboard()
 
@@ -238,3 +238,61 @@ def test_matches_brute_force_minimum_with_rests(seed: int) -> None:
 def test_invalid_rest_settings_are_rejected() -> None:
     with pytest.raises(ValueError):
         OptimizerSettings(full_cost_rest_s=1.0, free_rest_s=0.5)
+
+
+# --- Hints and styles (decision 019) --------------------------------------------
+
+PENT = [55, 57, 60, 62, 64, 67, 69, 72]
+
+
+def test_pinned_notes_keep_their_position_and_the_rest_follow() -> None:
+    pin = Position(4, 14)  # E4 an octave's worth of neck higher than usual
+    path = [t.position for t in assign_optimized(melody(PENT), BOARD, pins={4: pin}).notes]
+    assert path[4] == pin
+    free = positions(PENT)
+    assert sum(abs(a.fret - 14) for a in path) < sum(abs(a.fret - 14) for a in free)
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_matches_brute_force_minimum_with_hints(seed: int) -> None:
+    rng = random.Random(seed)
+    pitches = [rng.randint(52, 76) for _ in range(5)]
+    pin = rng.choice(BOARD.candidates(pitches[2]))
+    start = rng.randint(1, 12)
+    options = [[pin] if i == 2 else BOARD.candidates(p) for i, p in enumerate(pitches)]
+    best = min(sequence_cost(c, start_fret=start) for c in itertools.product(*options))
+    result = assign_optimized(melody(pitches), BOARD, pins={2: pin}, start_fret=start)
+    assert sequence_cost([t.position for t in result.notes], start_fret=start) == pytest.approx(best)
+
+
+def test_start_fret_moves_the_phrase() -> None:
+    def mean(start: int) -> float:
+        notes = assign_optimized(melody(PENT), BOARD, start_fret=start).notes
+        return sum(t.position.fret for t in notes) / len(notes)
+
+    assert mean(2) < mean(12)
+
+
+@pytest.mark.parametrize("pins", [{0: Position(1, 1)}, {9: Position(3, 0)}, {-1: Position(3, 0)}])
+def test_impossible_pins_are_rejected(pins: dict[int, Position]) -> None:
+    with pytest.raises(ValueError, match="note"):
+        assign_optimized(melody(PENT), BOARD, pins=pins)
+
+
+def test_start_fret_must_be_on_the_neck() -> None:
+    with pytest.raises(ValueError, match="start_fret"):
+        assign_optimized(melody(PENT), BOARD, start_fret=0)
+
+
+def test_pin_index_counts_unplayable_notes() -> None:
+    result = assign_optimized(melody([30, 69]), BOARD, pins={1: Position(2, 10)})
+    assert result.notes[0].position == Position(2, 10)
+
+
+def test_styles_put_the_hand_where_they_say() -> None:
+    def mean(style: str) -> float:
+        path = positions([64, 67, 69, 71, 69, 67, 64], STYLES[style])
+        return sum(p.fret for p in path) / len(path)
+
+    assert mean("open") < mean("lead")
+    assert STYLES["balanced"] == OptimizerSettings()

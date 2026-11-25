@@ -10,13 +10,18 @@ Usage:
     python scripts/make_tab.py ../samples/audio_clips/no_chord1.m4a
     python scripts/make_tab.py clip.mid --method both     # baseline vs optimizer
     python scripts/make_tab.py clip.m4a --json
+    python scripts/make_tab.py clip.m4a --style lead      # open, balanced or lead
+    python scripts/make_tab.py clip.m4a --list-notes      # numbers for --pin
+    python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -26,10 +31,10 @@ from pipeline.run import transcribe_file
 from pipeline.transcribe import TranscriptionSettings
 from tab.assign import Assigner, Assignment, assign_lowest_fret
 from tab.cleanup import clean_notes
-from tab.fretboard import Fretboard
+from tab.fretboard import Fretboard, Position
 from tab.metrics import PlayabilityMetrics, measure
-from tab.optimizer import assign_optimized
-from tab.render import DEFAULT_WIDTH, render_tab
+from tab.optimizer import STYLES, assign_optimized
+from tab.render import DEFAULT_WIDTH, render_tab, string_labels
 
 MIDI_EXTENSIONS = frozenset({".mid", ".midi"})
 ASSIGNERS: dict[str, Assigner] = {"optimized": assign_optimized, "baseline": assign_lowest_fret}
@@ -42,6 +47,21 @@ METRIC_LABELS = {
     "string_changes": "string changes",
     "unplayable": "unplayable notes",
 }
+
+
+def parse_pins(values: list[str], fretboard: Fretboard) -> dict[int, Position]:
+    """``3:G5`` -> note 3 on the G string, fret 5. ``e`` is the high E string, ``E`` the low one."""
+    strings = {label.strip(): i for i, label in enumerate(string_labels(fretboard), start=1)}
+    pins: dict[int, Position] = {}
+    for value in values:
+        match = re.fullmatch(r"(\d+):([A-Za-z]#?)(\d+)", value)
+        if not match or match.group(2) not in strings:
+            raise ValueError(f"can't read pin {value!r}; use NOTE:STRINGFRET, e.g. 3:G5 (strings {' '.join(strings)})")
+        index = int(match.group(1)) - 1
+        if index in pins:
+            raise ValueError(f"note {index + 1} is pinned twice")
+        pins[index] = Position(strings[match.group(2)], int(match.group(3)))
+    return pins
 
 
 def _notes_to_dict(assignment: Assignment) -> list[dict[str, object]]:
@@ -68,6 +88,11 @@ def main(argv: list[str] | None = None) -> int:
         "--method", choices=["optimized", "baseline", "both"], default="optimized",
         help="String/fret assigner (default: optimized)",
     )
+    parser.add_argument("--style", choices=list(STYLES), default="balanced", help="Playing style for the optimizer")
+    parser.add_argument("--start-fret", type=int, help="Fret the hand starts at (optimizer)")
+    parser.add_argument("--pin", action="append", default=[], metavar="NOTE:STRINGFRET",
+                        help="Fix a note's position, e.g. 3:G5; repeatable (optimizer)")
+    parser.add_argument("--list-notes", action="store_true", help="Number the notes, for --pin")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Keep octave-ghost notes")
     parser.add_argument("--no-ring-filter", action="store_true", help="Keep ringing open-string notes")
     parser.add_argument("--no-thump-filter", action="store_true", help="Keep quiet low notes under louder ones")
@@ -78,6 +103,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frame-threshold", type=float, default=0.3, help="Audio only")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args(argv)
+    if args.method == "baseline" and (args.pin or args.start_fret is not None or args.style != "balanced"):
+        parser.error("--style, --pin and --start-fret need the optimizer")
+
+    fretboard = Fretboard()
+    try:
+        pins = parse_pins(args.pin, fretboard)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     src = Path(args.path)
     source: dict[str, Any] = {"path": str(src)}
@@ -96,7 +129,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error [{exc.code}]: {exc.message}", file=sys.stderr)
         return 1
 
-    fretboard = Fretboard()
     cleanup = clean_notes(
         notes,
         fretboard,
@@ -106,7 +138,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     detected, notes = len(notes), cleanup.kept
     methods = list(ASSIGNERS) if args.method == "both" else [args.method]
-    assignments = {m: ASSIGNERS[m](notes, fretboard) for m in methods}
+    assigners = ASSIGNERS | {
+        "optimized": partial(assign_optimized, settings=STYLES[args.style], pins=pins, start_fret=args.start_fret)
+    }
+    try:
+        assignments = {m: assigners[m](notes, fretboard) for m in methods}
+    except ValueError as exc:
+        print(f"error [invalid_hint]: {exc}", file=sys.stderr)
+        return 1
     metrics = {m: measure(a) for m, a in assignments.items()}
     tabs = {m: render_tab(a, fretboard, args.width) for m, a in assignments.items()}
 
@@ -141,6 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     for reason, ns in cleanup.removed.items():
         for n in ns:
             print(f"  {reason.replace('_', ' ')}: {n.name} at {n.start_s:.2f} s")
+    if args.list_notes:
+        for i, n in enumerate(sorted(notes), start=1):
+            print(f"  note {i}: {n.name} at {n.start_s:.2f} s")
     for m in methods:
         print(f"\n{m.capitalize()}:\n{tabs[m]}")
     print("\n" + _metrics_table(metrics))

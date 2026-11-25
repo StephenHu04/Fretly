@@ -13,7 +13,7 @@ sequence under ``sequence_cost``.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from pipeline.midi_parser import NoteEvent
@@ -46,6 +46,15 @@ class OptimizerSettings:
         """How much of a shift's cost applies after ``rest_s`` of silence (1 = all)."""
         ramp = (self.free_rest_s - rest_s) / (self.free_rest_s - self.full_cost_rest_s)
         return min(1.0, max(0.0, ramp))
+
+
+# Playing styles (decision 019). "open" is the pre-018 weights; "lead" was tuned
+# on GuitarSet like "balanced" but without our own clips as a guardrail.
+STYLES: Mapping[str, OptimizerSettings] = {
+    "balanced": OptimizerSettings(),
+    "open": OptimizerSettings(finger_weight=0.25, height_weight=0.05, open_string_weight=0.5, home_fret=0),
+    "lead": OptimizerSettings(move_weight=1.5, finger_weight=0.05, shift_weight=2.0, height_weight=0.15, home_fret=7),
+}
 
 
 @dataclass(frozen=True)
@@ -90,6 +99,14 @@ def _step(
     return cost + settings.finger_weight * abs(fret - hand.last), _Hand(low, high, fret)
 
 
+def _start_hand(start_fret: int | None) -> _Hand | None:
+    if start_fret is None:
+        return None
+    if start_fret < 1:
+        raise ValueError("start_fret must be at least 1")
+    return _Hand(start_fret, start_fret, start_fret)
+
+
 def rests_before(notes: Sequence[NoteEvent]) -> list[float]:
     """Silence before each note: time since every earlier note ended (0 for the first)."""
     rests: list[float] = []
@@ -104,6 +121,7 @@ def sequence_cost(
     positions: Sequence[Position],
     settings: OptimizerSettings | None = None,
     rests: Sequence[float] | None = None,
+    start_fret: int | None = None,
 ) -> float:
     """Total cost of playing ``positions`` in order (used by tests and comparisons).
 
@@ -111,7 +129,7 @@ def sequence_cost(
     """
     settings = settings or OptimizerSettings()
     rests = [0.0] * len(positions) if rests is None else rests
-    total, prev, hand = 0.0, None, None
+    total, prev, hand = 0.0, None, _start_hand(start_fret)
     for pos, rest_s in zip(positions, rests, strict=True):
         cost, hand = _step(prev, hand, pos, settings, rest_s)
         total, prev = total + cost, pos
@@ -119,9 +137,18 @@ def sequence_cost(
 
 
 def assign_optimized(
-    notes: Iterable[NoteEvent], fretboard: Fretboard, settings: OptimizerSettings | None = None
+    notes: Iterable[NoteEvent],
+    fretboard: Fretboard,
+    settings: OptimizerSettings | None = None,
+    pins: Mapping[int, Position] | None = None,
+    start_fret: int | None = None,
 ) -> Assignment:
     """Assign every playable note so the whole sequence has minimum cost.
+
+    ``pins`` fixes notes the user has placed (index in time order -> position)
+    and the rest is solved around them; ``start_fret`` says where the hand is
+    before the first note. A pin that doesn't sound its note, or an index out
+    of range, raises ValueError.
 
     Unplayable notes are reported and skipped; their neighbours connect
     directly. Ties go to the earliest candidate found, which is the lowest
@@ -130,8 +157,16 @@ def assign_optimized(
     settings = settings or OptimizerSettings()
     playable: list[tuple[NoteEvent, list[Position]]] = []
     unplayable: list[NoteEvent] = []
-    for note in sorted(notes):
-        candidates = fretboard.candidates(note.pitch)
+    ordered = sorted(notes)
+    pins = pins or {}
+    for index, pos in pins.items():
+        if not 0 <= index < len(ordered):
+            raise ValueError(f"there is no note {index + 1}; there are {len(ordered)}")
+        if pos not in fretboard.candidates(ordered[index].pitch):
+            raise ValueError(f"string {pos.string} fret {pos.fret} doesn't play note {index + 1} ({ordered[index].name})")
+    start_hand = _start_hand(start_fret)
+    for i, note in enumerate(ordered):
+        candidates = [pins[i]] if i in pins else fretboard.candidates(note.pitch)
         if candidates:
             playable.append((note, candidates))
         else:
@@ -143,7 +178,7 @@ def assign_optimized(
     columns: list[dict[_State, tuple[float, _State | None]]] = []
     column: dict[_State, tuple[float, _State | None]] = {}
     for pos in playable[0][1]:
-        cost, hand = _step(None, None, pos, settings)
+        cost, hand = _step(None, start_hand, pos, settings)
         column[(pos, hand)] = (cost, None)
     columns.append(column)
 
