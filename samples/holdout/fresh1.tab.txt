@@ -1,0 +1,26 @@
+# Reference tab for fresh1.m4a (what was actually played)
+# Held-out clip, recorded as New Recording 32 after the calibration recordings,
+# with the tab written before recording and before Fretly was run on it.
+# Phone (M4A/AAC), 19-fret classical guitar, standard tuning. Single notes only.
+# Around fret 5.
+
+e|-----------------5------------------|
+B|-----------5--8-----8--6------------|
+G|-----5--7-----------------7--5------|
+D|--7-----------------------------7--5|
+A|------------------------------------|
+E|------------------------------------|
+
+# The same 12 notes in order: string, fret, pitch (MIDI)
+# 1  D 7  A3  57
+# 2  G 5  C4  60
+# 3  G 7  D4  62
+# 4  B 5  E4  64
+# 5  B 8  G4  67
+# 6  e 5  A4  69
+# 7  B 8  G4  67
+# 8  B 6  F4  65
+# 9  G 7  D4  62
+# 10 G 5  C4  60
+# 11 D 7  A3  57
+# 12 D 5  G3  55
