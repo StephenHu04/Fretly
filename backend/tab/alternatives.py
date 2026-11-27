@@ -12,7 +12,15 @@ from dataclasses import replace
 from pipeline.midi_parser import NoteEvent
 from tab.assign import Assignment
 from tab.fretboard import Fretboard, Position
-from tab.optimizer import STYLES, OptimizerSettings, assign_optimized, rests_before, sequence_cost
+from tab.optimizer import (
+    STYLES,
+    OptimizerSettings,
+    StringProbabilities,
+    assign_optimized,
+    rests_before,
+    sequence_cost,
+    sound_cost,
+)
 
 HOME_FRETS = (1, 3, 5, 7, 9, 12)
 MIN_DIFFERENCE = 0.3  # share of notes that must move for a tab to count as different
@@ -31,11 +39,12 @@ def alternatives(
     settings: OptimizerSettings | None = None,
     pins: Mapping[int, Position] | None = None,
     start_fret: int | None = None,
+    sound: StringProbabilities | None = None,
 ) -> list[Assignment]:
     """Up to ``count`` clearly different assignments, the optimizer's choice first.
 
     The others come from the playing styles and from other home frets, cheapest
-    first under ``settings``. Fewer are returned when the notes don't allow more.
+    first under ``settings`` (and ``sound``, if given). Fewer are returned when the notes don't allow more.
     """
     if count < 1:
         raise ValueError("count must be at least 1")
@@ -43,11 +52,13 @@ def alternatives(
     settings = settings or OptimizerSettings()
 
     def solve(candidate: OptimizerSettings) -> Assignment:
-        return assign_optimized(ordered, fretboard, candidate, pins=pins, start_fret=start_fret)
+        return assign_optimized(ordered, fretboard, candidate, pins=pins, start_fret=start_fret, sound=sound)
 
     def cost(assignment: Assignment) -> float:
-        rests = rests_before([t.note for t in assignment.notes])
-        return sequence_cost([t.position for t in assignment.notes], settings, rests, start_fret)
+        notes_ = [t.note for t in assignment.notes]
+        positions = [t.position for t in assignment.notes]
+        total = sequence_cost(positions, settings, rests_before(notes_), start_fret)
+        return total + (sound_cost(notes_, positions, sound, settings) if sound else 0.0)
 
     chosen = [solve(settings)]
     variants = [*STYLES.values(), *(replace(STYLES["lead"], home_fret=fret) for fret in HOME_FRETS)]

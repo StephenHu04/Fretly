@@ -8,13 +8,15 @@ State is (position, hand) rather than just position. The hand remembers the
 fret window used since the last shift and the last fretted note, so open
 strings don't let it jump around the neck for free (fret 2 -> open -> fret 12
 still costs a 10-fret move). The search is exact: it returns a minimum-cost
-sequence under ``sequence_cost``.
+sequence under ``sequence_cost`` (plus ``sound_cost`` when string
+probabilities from the sound are given, decision 023).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from math import log
 
 from pipeline.midi_parser import NoteEvent
 from tab.assign import Assignment, TabNote
@@ -37,6 +39,10 @@ class OptimizerSettings:
     # full_cost_rest_s, free from free_rest_s, linear between (decision 016).
     full_cost_rest_s: float = 0.25
     free_rest_s: float = 1.0
+    # Per unit of -log p(string) when the sound gives string probabilities
+    # (decision 023); fixed at 1 before scoring. Probabilities below
+    # MIN_STRING_PROBABILITY count as that, so the sound can't forbid a string.
+    sound_weight: float = 1.0
 
     def __post_init__(self) -> None:
         if not 0 <= self.full_cost_rest_s < self.free_rest_s:
@@ -65,6 +71,23 @@ class _Hand:
 
 
 _State = tuple[Position, _Hand | None]
+StringProbabilities = Mapping[NoteEvent, Mapping[int, float]]
+MIN_STRING_PROBABILITY = 1e-3
+
+
+def _sound_step(note: NoteEvent, pos: Position, settings: OptimizerSettings, sound: StringProbabilities | None) -> float:
+    probs = sound.get(note) if sound else None
+    if not probs or not settings.sound_weight:
+        return 0.0
+    return -settings.sound_weight * log(max(probs.get(pos.string, 0.0), MIN_STRING_PROBABILITY))
+
+
+def sound_cost(
+    notes: Sequence[NoteEvent], positions: Sequence[Position], sound: StringProbabilities, settings: OptimizerSettings | None = None
+) -> float:
+    """The sound's share of the cost: how unlikely the sound makes the chosen strings."""
+    settings = settings or OptimizerSettings()
+    return sum(_sound_step(n, p, settings, sound) for n, p in zip(notes, positions, strict=True))
 
 
 def _step(
@@ -142,12 +165,15 @@ def assign_optimized(
     settings: OptimizerSettings | None = None,
     pins: Mapping[int, Position] | None = None,
     start_fret: int | None = None,
+    sound: StringProbabilities | None = None,
 ) -> Assignment:
     """Assign every playable note so the whole sequence has minimum cost.
 
     ``pins`` fixes notes the user has placed (index in time order -> position)
     and the rest is solved around them; ``start_fret`` says where the hand is
-    before the first note. A pin that doesn't sound its note, or an index out
+    before the first note. ``sound`` gives, per note, the probability of each
+    string from how it sounded (``tab.string_model``); notes without an entry
+    get no sound cost. A pin that doesn't sound its note, or an index out
     of range, raises ValueError.
 
     Unplayable notes are reported and skipped; their neighbours connect
@@ -177,18 +203,21 @@ def assign_optimized(
     # Each column maps state -> (best total cost so far, previous state).
     columns: list[dict[_State, tuple[float, _State | None]]] = []
     column: dict[_State, tuple[float, _State | None]] = {}
+    first = playable[0][0]
     for pos in playable[0][1]:
         cost, hand = _step(None, start_hand, pos, settings)
-        column[(pos, hand)] = (cost, None)
+        column[(pos, hand)] = (cost + _sound_step(first, pos, settings, sound), None)
     columns.append(column)
 
     rests = rests_before([note for note, _ in playable])
-    for (_, candidates), rest_s in zip(playable[1:], rests[1:], strict=True):
+    for (note, candidates), rest_s in zip(playable[1:], rests[1:], strict=True):
         nxt: dict[_State, tuple[float, _State | None]] = {}
+        heard = {pos: _sound_step(note, pos, settings, sound) for pos in candidates}
         for state, (total, _) in column.items():
             prev, hand = state
             for pos in candidates:
                 cost, new_hand = _step(prev, hand, pos, settings, rest_s)
+                cost += heard[pos]
                 key = (pos, new_hand)
                 if key not in nxt or total + cost < nxt[key][0]:
                     nxt[key] = (total + cost, state)

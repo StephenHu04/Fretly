@@ -10,6 +10,11 @@ from pipeline.preprocess import preprocess_audio
 from pipeline.transcribe import TranscriptionResult, TranscriptionSettings, transcribe
 
 
+def preprocessed_path(src: Path, out_dir: Path) -> Path:
+    """Where ``transcribe_file`` writes the FFmpeg output for ``src``."""
+    return out_dir / f"{src.stem}.22k.wav"
+
+
 def transcribe_file(
     src: Path,
     out_dir: Path,
@@ -28,7 +33,7 @@ def transcribe_file(
     model_input = src
     if not skip_preprocess:
         t0 = time.perf_counter()
-        model_input = preprocess_audio(src, out_dir / f"{src.stem}.22k.wav")
+        model_input = preprocess_audio(src, preprocessed_path(src, out_dir))
         timings["preprocess_s"] = time.perf_counter() - t0
 
     t0 = time.perf_counter()
