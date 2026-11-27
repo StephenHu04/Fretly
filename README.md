@@ -335,6 +335,42 @@ Transcription", ISMIR 2018), licensed under
 converted to Fretly's note format when read; no GuitarSet files are included
 in this repository.
 
+### Telling the string from the sound
+
+The same note sounds different on different strings: thicker strings played
+higher up the neck sound duller. With a short calibration recording of the
+player's own guitar, Fretly can hear that and use it to choose between
+positions the notes alone leave open (decision 023). Record each string on its
+own, open and then frets 1 to 12, one note at a time, with the same phone and
+in the same place as the clips. Save them as `string_e`, `string_B`,
+`string_G`, `string_D`, `string_A` and `string_lowE` in one folder, then:
+
+```bash
+python scripts/calibrate.py ../samples/calibration --max-fret 19
+python scripts/make_tab.py clip.m4a --max-fret 19 --profile ../samples/calibration/profile.json
+```
+
+`calibrate.py` also checks the tuning: an open string more than 15 cents out,
+or fretted notes more than 40 cents sharp on average, gets a warning, because
+those notes can be heard as the next note up. It reports how well it tells the
+strings apart on frets left out of the fit; for the guitar here (a 19-fret
+classical, recorded on a phone) that was 82% of notes against 35% for
+guessing, with the B string weakest (46%).
+
+End to end (in tab, balanced style, `--max-fret 19`), measured 2026-11-26:
+
+| Clips | Without profile | With profile |
+|---|---|---|
+| Our 8 clips | 93/111 | 102/111 |
+| Older holdout (`cross_descent`, `pos4_riff`) | 10/17 | 16/17 |
+| **Fresh clips** (`fresh1-3`, scored once) | **16/36** | **29/36** |
+
+The fresh clips were recorded after the calibration, with their tabs written
+first and committed before scoring; the settings were fixed beforehand. They
+are the result to trust. The others were used while developing the filters,
+weights and this model's features. A profile belongs to one guitar, set of
+strings, microphone and room; anything else needs its own calibration.
+
 ### Known limitations
 
 Apart from the octave ghosts, ringing open strings and low thumps above, these come
@@ -366,6 +402,7 @@ python scripts/make_tab.py clip.m4a --list-notes                      # number t
 python scripts/make_tab.py clip.m4a --max-fret 19                         # neck length; most classical guitars
 python scripts/make_tab.py clip.m4a --alternatives 3                      # several tabs to choose from
 python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5         # hints; the rest is solved around them
+python scripts/make_tab.py clip.m4a --profile profile.json            # tell strings apart by sound (calibrate.py)
 ```
 
 `--pin 3:G5` puts note 3 on the G string at fret 5 (`e` is the high E string,
@@ -422,6 +459,9 @@ the *reference* notes, how often each assigner picks the player's string and
 fret), plus **in tab**: played notes that come out exactly right in the final
 tab. `--no-ghost-filter`, `--no-ring-filter` and `--no-thump-filter` show
 what each filter contributes. Results are in [Observed on real recordings](#observed-on-real-recordings).
+
+`--profile profile.json` makes the optimizer's in-tab score use the sound
+profile; the fret scores use no audio, so they don't change.
 
 Clips in `samples/holdout/` are skipped by default. They're kept back so the
 final score comes from recordings nothing was tuned on; score them with
@@ -539,9 +579,11 @@ backend/
   tab/phrases.py                 fixed test phrases for comparing assigners
   tab/guitarset.py               single-note passages from GuitarSet annotations
   tab/alternatives.py            several different tabs for the same notes
+  tab/string_model.py            which string a note was played on, from its sound
   scripts/inspect_audio.py       command-line inspection tool
   scripts/transcribe_audio.py    command-line audio -> MIDI pipeline
   scripts/make_tab.py            command-line audio or MIDI -> tab
+  scripts/calibrate.py           sound profile from six recordings of one guitar
   scripts/evaluate.py            score the pipeline on clips with reference tabs
   scripts/compare_assigners.py   optimizer vs baseline on the fixed phrases
   scripts/score_guitarset.py     fret choice against GuitarSet players

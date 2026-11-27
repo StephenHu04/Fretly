@@ -236,8 +236,11 @@ since it takes audio too and detects the input type from the extension.
   - 2026-11-24: pins, start fret and playing styles (decision 019).
   - 2026-11-24: shared-onset filter (decision 020), alternative tabs (021), and
     a trial of telling the string from the sound (022): not built in, see there.
-  - Next, in order: a misheard note shouldn't drag the hand (`no_chord3`); hand span wider above fret 7. Then fresh
-    blind clips, since the current ones have been used.
+  - 2026-11-26: string from the sound, with a calibration recording of the
+    player's guitar (decision 023). Fresh clips, in tab: 16/36 to 29/36.
+  - Next, in order: extra notes on slowly played clips (29 on the fresh clips,
+    precision 55%); a misheard note shouldn't drag the hand (`no_chord3`);
+    hand span wider above fret 7. New fresh clips for any further tuning.
 
   There are only three distinct phrases so far (`no_chord2` and `no_chord6`
   repeat 1 and 5), so further tuning would memorise them. New recordings come

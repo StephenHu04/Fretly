@@ -576,7 +576,7 @@ accuracy. The 30% and the home frets were not tuned.
 
 ## 022 — Trial: telling the string from the sound (not adopted)
 
-**Date:** 2026-11-24 · **Status:** Not adopted; revisit with more recordings
+**Date:** 2026-11-24 · **Status:** Not adopted; superseded by 023 (calibration on the player's guitar)
 
 **Question.** The same pitch sounds different on different strings. Can that
 settle positions the notes leave open? Rule fixed beforehand: build it only if
@@ -613,3 +613,48 @@ string, open to about fret 12), and train or calibrate on those.
 guitar, confirmed by the player after the trial. Nylon strings differ in
 stiffness, brightness and decay, so this is another likely cause if, as we
 believe but haven't verified, GuitarSet's guitar has steel strings.
+
+---
+
+## 023 — Tell the string from the sound, calibrated on the player's guitar
+
+**Date:** 2026-11-26 · **Status:** Accepted
+
+**Context.** 022 showed the string is audible within GuitarSet but the model
+didn't carry over to our phone recordings. Its suggested next step: record
+labelled notes on the target guitar.
+
+**Decision.** `scripts/calibrate.py` turns six recordings (each string open to
+fret 12, 78 notes) into a JSON profile; `make_tab.py --profile` uses it. Per
+note: 21 level-independent timbre features (15 relative harmonic levels,
+inharmonicity, spectral centroid, decay, attack, odd/even balance, upper
+harmonics). Each string's features are a straight line in pitch (ridge 0.1);
+the strings share one residual covariance, shrunk halfway to its diagonal plus
+0.05 on the diagonal; a note's string probabilities are Gaussian likelihoods
+over the strings that can play it, scaled by a temperature chosen by leaving
+out one fret at a time. The optimizer adds `-1 × log p(string)` per note
+(floor 0.001), so the search stays exact. numpy only; no new dependencies.
+
+**Rule fixed before scoring.** Weight 1, balanced style, `--max-fret 19`;
+adopt if it beats the 103 of 128 notes in tab without sound on our 10 clips,
+then score fresh clips once.
+
+**Consequences.**
+- Calibration: 82% of left-out notes on the right string (guessing 35%); e 92%,
+  B 46%, G 62%, D 100%, A 100%, low E 92%.
+- Our 10 earlier clips, in tab: 103 to 118 of 128. A first calibration, with
+  the low E about 40 cents sharp and corrected by hand, gave 121; the low E was
+  retuned and re-recorded, and the profile uses that recording uncorrected.
+  Other weights (0.25 to 4) gave 116 to 121; weight 2 would score higher here,
+  but was not chosen after seeing that.
+- **Fresh clips** (`fresh1-3`, 36 notes, tabs written before recording and
+  committed before scoring): **16 to 29 of 36**. fresh1 4 to 12 of 12, fresh2
+  (G and B strings, frets 7-10) 1 to 7, fresh3 (open position) 11 to 10.
+  Given the correct notes, the optimizer already chose the player's positions
+  for 35 of 36; the losses without sound came from 29 extra notes (precision
+  55%) pulling the hand, which the sound partly resists.
+- One guitar, player, phone and room, one calibration session; three fresh
+  phrases, chosen by someone who knew how Fretly works. A different guitar needs its
+  own profile. Must be revisited for chords (3.9): features assume one note
+  sounding at a time.
+
