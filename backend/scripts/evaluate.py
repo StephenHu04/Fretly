@@ -6,6 +6,7 @@ runs transcription and cleanup, and reports:
 - detection: played notes found, missed and extra (precision / recall);
 - frets: with the reference notes as input, how often each assigner picks the
   same string and fret as the player;
+  These use no audio, so ``--profile`` doesn't change them;
 - in tab: end to end, played notes that appear in the final tab exactly as
   played (right note, right string and fret).
 
@@ -17,6 +18,7 @@ Usage:
     python scripts/evaluate.py ../samples/audio_clips/no_chord3.tab.txt -v
     python scripts/evaluate.py --holdout             # only ../samples/holdout
     python scripts/evaluate.py --json
+    python scripts/evaluate.py --profile ../samples/calibration/profile.json  # optimizer hears strings
 """
 
 from __future__ import annotations
@@ -31,12 +33,13 @@ from typing import Any
 from pipeline.audio_validation import SUPPORTED_EXTENSIONS
 from pipeline.errors import PipelineError
 from pipeline.midi_parser import NoteEvent, midi_to_note_name
-from pipeline.run import transcribe_file
+from pipeline.run import preprocessed_path, transcribe_file
 from tab.assign import assign_lowest_fret
 from tab.cleanup import clean_notes
 from tab.evaluation import exact_in_tab, parse_reference, position_agreement, score_detection
 from tab.fretboard import DEFAULT_MAX_FRET, Fretboard
 from tab.optimizer import STYLES, OptimizerSettings, assign_optimized
+from tab.string_model import Profile, read_samples
 
 REFERENCE_SUFFIX = ".tab.txt"
 HOLDOUT_DIR = "holdout"
@@ -76,6 +79,7 @@ def evaluate_clip(
     out_dir: Path,
     filters: dict[str, bool],
     settings: OptimizerSettings,
+    profile: Profile | None = None,
 ) -> dict[str, Any]:
     positions = parse_reference(reference.read_text(encoding="utf-8"), fretboard)
     pitches = [fretboard.pitch_at(p) for p in positions]
@@ -93,6 +97,10 @@ def evaluate_clip(
         for name, assign in assigners
     }
     in_tab = {name: exact_in_tab(positions, assign(cleanup.kept, fretboard), fretboard) for name, assign in assigners}
+    if profile:
+        sound = profile.string_probabilities(read_samples(preprocessed_path(audio, out_dir)), cleanup.kept, fretboard)
+        heard = assign_optimized(cleanup.kept, fretboard, settings, sound=sound)
+        in_tab["optimized"] = exact_in_tab(positions, heard, fretboard)
     return {
         "clip": audio.stem,
         "played": detection.played,
@@ -176,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"Score only the held-out clips in ../samples/{HOLDOUT_DIR}")
     parser.add_argument("--max-fret", type=int, default=DEFAULT_MAX_FRET, help="Highest fret on the guitar (classical: usually 19)")
     parser.add_argument("--style", choices=list(STYLES), default="balanced", help="Playing style for the optimizer")
+    parser.add_argument("--profile", type=Path, help="Sound profile from calibrate.py; the optimizer's in-tab score uses it")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Score without the octave-ghost filter")
     parser.add_argument("--no-ring-filter", action="store_true", help="Score without the ringing open-string filter")
     parser.add_argument("--no-thump-filter", action="store_true", help="Score without the low-thump filter")
@@ -194,6 +203,12 @@ def main(argv: list[str] | None = None) -> int:
         "low_thumps": not args.no_thump_filter,
         "shared_onsets": not args.no_onset_filter,
     }
+    profile = None
+    if args.profile:
+        try:
+            profile = Profile.load(args.profile)
+        except (OSError, ValueError, KeyError) as exc:
+            parser.error(f"can't read profile: {exc}")
     clips = []
     if args.holdout and args.paths:
         parser.error("--holdout can't be combined with paths")
@@ -204,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"skipping {reference.name}: no matching audio file", file=sys.stderr)
             continue
         try:
-            clips.append(evaluate_clip(reference, audio, fretboard, args.out_dir, filters, STYLES[args.style]))
+            clips.append(evaluate_clip(reference, audio, fretboard, args.out_dir, filters, STYLES[args.style], profile))
         except PipelineError as exc:
             print(f"error [{exc.code}] in {audio.name}: {exc.message}", file=sys.stderr)
             return 1

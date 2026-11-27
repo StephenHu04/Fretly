@@ -145,3 +145,22 @@ def test_scripts_run_as_commands(script: str) -> None:
         [sys.executable, f"scripts/{script}", "--help"], cwd=BACKEND, capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_profile_needs_audio_and_the_optimizer(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    midi = write_midi(tmp_path / "riff.mid", HIGH_RUN)
+    profile = tmp_path / "profile.json"
+    profile.write_text('{"version": 1, "tuning": [64, 59, 55, 50, 45, 40], "model": {}}', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        main([str(midi), "--profile", str(profile), "--method", "baseline"])
+    assert "need the optimizer" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        main([str(midi), "--profile", str(profile)])
+    assert "profile" in capsys.readouterr().err
+
+
+def test_unreadable_profile_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    midi = write_midi(tmp_path / "riff.mid", HIGH_RUN)
+    with pytest.raises(SystemExit):
+        main([str(midi), "--profile", str(tmp_path / "missing.json")])
+    assert "can't read profile" in capsys.readouterr().err

@@ -15,6 +15,7 @@ Usage:
     python scripts/make_tab.py clip.m4a --alternatives 3  # up to 3 different tabs
     python scripts/make_tab.py clip.m4a --list-notes      # numbers for --pin
     python scripts/make_tab.py clip.m4a --start-fret 5 --pin 3:G5
+    python scripts/make_tab.py clip.m4a --profile ../samples/calibration/profile.json  # string from sound
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from typing import Any
 
 from pipeline.errors import PipelineError
 from pipeline.midi_parser import NoteEvent, parse_midi
-from pipeline.run import transcribe_file
+from pipeline.run import preprocessed_path, transcribe_file
 from pipeline.transcribe import TranscriptionSettings
 from tab.alternatives import alternatives
 from tab.assign import Assigner, Assignment, assign_lowest_fret
@@ -38,6 +39,7 @@ from tab.fretboard import DEFAULT_MAX_FRET, Fretboard, Position
 from tab.metrics import PlayabilityMetrics, measure
 from tab.optimizer import STYLES, assign_optimized
 from tab.render import DEFAULT_WIDTH, render_tab, string_labels
+from tab.string_model import Profile, read_samples
 
 MIDI_EXTENSIONS = frozenset({".mid", ".midi"})
 ASSIGNERS: dict[str, Assigner] = {"optimized": assign_optimized, "baseline": assign_lowest_fret}
@@ -97,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pin", action="append", default=[], metavar="NOTE:STRINGFRET",
                         help="Fix a note's position, e.g. 3:G5; repeatable (optimizer)")
     parser.add_argument("--alternatives", type=int, default=1, metavar="N", help="Show up to N different tabs (optimizer)")
+    parser.add_argument("--profile", type=Path, help="Audio only: sound profile from calibrate.py, to tell strings apart")
     parser.add_argument("--list-notes", action="store_true", help="Number the notes, for --pin")
     parser.add_argument("--no-ghost-filter", action="store_true", help="Keep octave-ghost notes")
     parser.add_argument("--no-ring-filter", action="store_true", help="Keep ringing open-string notes")
@@ -111,9 +114,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.alternatives < 1:
         parser.error("--alternatives must be at least 1")
-    hints = args.pin or args.start_fret is not None or args.style != "balanced" or args.alternatives > 1
+    hints = args.pin or args.start_fret is not None or args.style != "balanced" or args.alternatives > 1 or args.profile
     if args.method == "baseline" and hints:
-        parser.error("--style, --pin, --start-fret and --alternatives need the optimizer")
+        parser.error("--style, --pin, --start-fret, --alternatives and --profile need the optimizer")
 
     if not 1 <= args.max_fret <= DEFAULT_MAX_FRET:
         parser.error(f"--max-fret must be 1-{DEFAULT_MAX_FRET}")
@@ -123,7 +126,15 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
 
+    profile = None
+    if args.profile:
+        try:
+            profile = Profile.load(args.profile)
+        except (OSError, ValueError, KeyError) as exc:
+            parser.error(f"can't read profile: {exc}")
     src = Path(args.path)
+    if profile and src.suffix.lower() in MIDI_EXTENSIONS:
+        parser.error("--profile needs audio; a MIDI file has no sound to listen to")
     source: dict[str, Any] = {"path": str(src)}
     try:
         if src.suffix.lower() in MIDI_EXTENSIONS:
@@ -150,8 +161,17 @@ def main(argv: list[str] | None = None) -> int:
         shared_onsets=source["type"] == "audio" and not args.no_onset_filter,
     )
     detected, notes = len(notes), cleanup.kept
+    sound = None
+    if profile:
+        wav = src if args.skip_preprocess else preprocessed_path(src, Path(args.out_dir))
+        try:
+            sound = profile.string_probabilities(read_samples(wav), notes, fretboard)
+        except ValueError as exc:
+            print(f"error [profile]: {exc}", file=sys.stderr)
+            return 1
+        source["profile"] = str(args.profile)
     methods = list(ASSIGNERS) if args.method == "both" else [args.method]
-    options = partial(alternatives, settings=STYLES[args.style], pins=pins, start_fret=args.start_fret)
+    options = partial(alternatives, settings=STYLES[args.style], pins=pins, start_fret=args.start_fret, sound=sound)
     assignments: dict[str, Assignment] = {}
     try:
         for m in methods:
@@ -188,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
               f"transcribed in {sum(source['timings'].values()):.1f} s")
     else:
         print(f"Input: {src.name} (MIDI)")
+    if profile:
+        print(f"Strings from sound: {args.profile.name}")
     removed = ", ".join(
         f"{len(ns)} {reason.replace('_', ' ')}{'s' if len(ns) > 1 else ''}"
         for reason, ns in cleanup.removed.items()
